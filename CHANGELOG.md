@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Match the official Nova slider and checkbox dimensions, icons and focus rings.
+- Remove dropdown search while retaining listbox keyboard selection.
+- Fix date-range pointer routing, coincident handles and selected-track alignment.
+- Preserve model button nodes on toggle to avoid restarting hover transitions.
+- Keep current filters intact if switching data sources fails.
+
 - Use the original shadcn-html combobox markup and CSS; remove conflicting control padding and height overrides.
 - Adapt the upstream shadcn-html combobox JavaScript and fix trigger re-click reopening.
 - Fix first Cursor fetch on freshly booted systems with under five minutes of uptime.

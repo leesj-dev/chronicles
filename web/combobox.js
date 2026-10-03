@@ -1,8 +1,8 @@
 /* Adapted from shadcn-html combobox.js at 0964e09e16034e39a244589d457a866171991f1d.
  * MIT, Copyright (c) 2026 Cody Lindley. Full license: THIRD_PARTY_NOTICES.md.
  * Integration changes: declarative popover invoker, change event/value adapter,
- * selected-option highlight, and positioning fallback. Filtering and input
- * keyboard navigation retain the upstream implementation.
+ * selected-option highlight, and positioning fallback. Search is omitted for these short option lists; keyboard navigation retains
+ * the upstream implementation.
  */
 (() => {
   function init(wrapper) {
@@ -10,10 +10,9 @@
     const trigger = wrapper.querySelector(".combobox-trigger");
     const valueEl = wrapper.querySelector(".combobox-value");
     const popover = wrapper.querySelector(".combobox-content");
-    const searchInput = wrapper.querySelector(".combobox-search-input");
+    const listboxFocus = wrapper.querySelector('[role="listbox"]');
     const listbox = wrapper.querySelector('[role="listbox"]');
-    const empty = wrapper.querySelector(".combobox-empty");
-    if (!trigger || !popover || !searchInput || !listbox) return;
+    if (!trigger || !popover || !listboxFocus || !listbox) return;
 
     const allItems = Array.from(listbox.querySelectorAll('[role="option"]'));
     let highlighted = -1;
@@ -43,48 +42,17 @@
     const open = () => {
       popover.showPopover();
       trigger.setAttribute("aria-expanded", "true");
-      searchInput.value = "";
-      filter("");
       position();
-      searchInput.focus();
+      listboxFocus.focus();
     };
     const close = () => {
       popover.hidePopover();
       trigger.setAttribute("aria-expanded", "false");
-      searchInput.setAttribute("aria-activedescendant", "");
+      listboxFocus.setAttribute("aria-activedescendant", "");
       clearHighlight();
       trigger.focus();
     };
     const isOpen = () => popover.matches(":popover-open");
-    const filter = (query) => {
-      const q = query.toLowerCase();
-      let hasVisible = false;
-      allItems.forEach((item) => {
-        const match = !q || item.textContent.trim().toLowerCase().includes(q);
-        item.hidden = !match;
-        if (match) hasVisible = true;
-      });
-      listbox.querySelectorAll(".combobox-group-label").forEach((label) => {
-        let next = label.nextElementSibling;
-        let groupHasVisible = false;
-        while (
-          next &&
-          !next.classList.contains("combobox-group-label") &&
-          !next.classList.contains("combobox-separator")
-        ) {
-          if (next.getAttribute("role") === "option" && !next.hidden)
-            groupHasVisible = true;
-          next = next.nextElementSibling;
-        }
-        label.hidden = !groupHasVisible;
-      });
-      listbox.querySelectorAll(".combobox-separator").forEach((sep) => {
-        const prev = sep.previousElementSibling;
-        const next = sep.nextElementSibling;
-        sep.hidden = (prev && prev.hidden) || (next && next.hidden);
-      });
-      if (empty) empty.hidden = hasVisible;
-    };
     const clearHighlight = () => {
       allItems.forEach((item) => {
         delete item.dataset.highlighted;
@@ -98,7 +66,7 @@
       highlighted = index;
       items[index].dataset.highlighted = "";
       items[index].scrollIntoView({ block: "nearest" });
-      searchInput.setAttribute("aria-activedescendant", items[index].id);
+      listboxFocus.setAttribute("aria-activedescendant", items[index].id);
     };
     const selectItem = (item) => {
       if (item.getAttribute("aria-disabled") === "true") return;
@@ -125,17 +93,7 @@
         if (!isOpen()) open();
       }
     });
-    popover.addEventListener("beforetoggle", (e) => {
-      if (e.newState === "open") {
-        searchInput.value = "";
-        filter("");
-      }
-    });
-    searchInput.addEventListener("input", () => {
-      filter(searchInput.value);
-      doHighlight(0);
-    });
-    searchInput.addEventListener("keydown", (e) => {
+    listboxFocus.addEventListener("keydown", (e) => {
       const items = getVisibleItems();
       switch (e.key) {
         case "ArrowDown":
@@ -183,10 +141,10 @@
     popover.addEventListener("toggle", () => {
       const expanded = isOpen();
       trigger.setAttribute("aria-expanded", String(expanded));
-      searchInput.setAttribute("aria-expanded", String(expanded));
+      listboxFocus.setAttribute("aria-expanded", String(expanded));
       if (expanded) {
         position();
-        searchInput.focus();
+        listboxFocus.focus();
         const items = getVisibleItems();
         doHighlight(
           Math.max(
@@ -196,7 +154,7 @@
         );
       } else {
         clearHighlight();
-        searchInput.removeAttribute("aria-activedescendant");
+        listboxFocus.removeAttribute("aria-activedescendant");
       }
     });
     window.addEventListener("resize", () => {

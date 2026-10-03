@@ -168,62 +168,84 @@ label input {
 .date-inputs > span {
   color: var(--muted-foreground);
 }
+/* Dual date-range layout. Slider geometry and states below translate the
+   official shadcn/ui Nova theme (4px track, 12px thumb, 3px focus ring). */
 .range-track {
-  height: 54px;
+  height: 60px;
   position: relative;
-  margin: 20px 10px 10px;
+  margin: 16px 0 10px;
+  touch-action: none;
+  cursor: pointer;
 }
 #mini-chart {
-  height: 44px;
+  height: 36px;
+  margin-inline: 6px;
   display: flex;
   align-items: end;
   gap: 1px;
-  opacity: 0.4;
+  opacity: .3;
+  pointer-events: none;
 }
-.mini-bar {
-  background: var(--muted-foreground);
-  flex: 1;
-  min-width: 0;
+.mini-bar { background: var(--muted-foreground); flex: 1; min-width: 0; }
+.range-track::after {
+  content: "";
+  position: absolute;
+  left: 6px; right: 6px; top: 46px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--muted);
+  pointer-events: none;
 }
 #range-shade {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  border-left: 1px solid var(--primary);
-  border-right: 1px solid var(--primary);
+  top: 46px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
   pointer-events: none;
+  z-index: 1;
 }
 .range-track input {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  top: 46px; left: 0;
+  width: 100%; height: 4px;
   margin: 0;
   pointer-events: none;
   appearance: none;
-  background: none;
+  background: transparent;
+  border: 0;
+  outline: none;
+  z-index: 2;
 }
+.range-track input::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+.range-track input::-moz-range-track { height: 4px; background: transparent; }
+.range-track input::-moz-range-progress { background: transparent; }
 .range-track input::-webkit-slider-thumb {
-  appearance: none;
-  pointer-events: auto;
-  background: var(--primary);
-  border: 3px solid var(--panel);
-  width: 18px;
-  height: 38px;
-  border-radius: 6px;
-  cursor: ew-resize;
+  width: 12px; height: 12px;
+  margin-top: -4px;
+  border: 1px solid var(--ring);
+  background: white;
+  transition: color 150ms, box-shadow 150ms;
 }
 .range-track input::-moz-range-thumb {
-  pointer-events: auto;
-  background: var(--primary);
-  border: 3px solid var(--panel);
-  width: 12px;
-  height: 32px;
-  border-radius: 6px;
-  cursor: ew-resize;
+  box-sizing: border-box;
+  width: 12px; height: 12px;
+  border: 1px solid var(--ring);
+  background: white;
+  transition: color 150ms, box-shadow 150ms;
 }
-.range-track input::-moz-range-track {
-  background: transparent;
+.range-track input:is(:focus-visible, [data-dragging], [data-hover])::-webkit-slider-thumb {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+}
+.range-track input:is(:focus-visible, [data-dragging], [data-hover])::-moz-range-thumb {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+}
+.range-track input:disabled { opacity: .5; }
+@media (prefers-reduced-motion: reduce) {
+  .range-track input::-webkit-slider-thumb { transition: none; }
+  .range-track input::-moz-range-thumb { transition: none; }
 }
 .range-ends {
   display: flex;
@@ -896,4 +918,29 @@ label .select:focus-visible {
   font-size: 12px;
   font-weight: 500;
   color: var(--muted-foreground);
+}
+
+/* Nova checkbox: official size, corners, icon and focus treatment. */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-color: var(--input);
+  border-radius: 4px;
+}
+.checkbox:checked::after {
+  left: 50%; top: 50%;
+  width: 14px; height: 14px;
+  border: 0;
+  background: var(--primary-foreground);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m20 6-11 11-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+  transform: translate(-50%, -50%);
+}
+.checkbox:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  .checkbox:not(:checked) { background: color-mix(in srgb, var(--input) 30%, transparent); }
 }

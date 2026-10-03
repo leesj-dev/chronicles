@@ -74,10 +74,7 @@ function customSelect(id, label, choices) {
     valueLabel = el("span", "combobox-value"),
     chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg"),
     popup = el("div", "combobox-content"),
-    search = el("div", "combobox-search"),
-    input = el("input", "combobox-search-input"),
-    list = el("div", "combobox-listbox"),
-    empty = el("div", "combobox-empty", "No results found.");
+    list = el("div", "combobox-listbox");
   if (field.id) fieldWrapper.id = field.id;
   fieldWrapper.hidden = field.hidden;
   labelEl.id = id + "-label";
@@ -105,21 +102,7 @@ function customSelect(id, label, choices) {
   chevron.setAttribute("stroke", "currentColor");
   chevron.setAttribute("stroke-width", "2");
   chevron.innerHTML = '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>';
-  const searchIcon = chevron.cloneNode(false);
-  searchIcon.setAttribute("class", "combobox-search-icon");
-  searchIcon.innerHTML =
-    '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
-  input.type = "text";
-  input.autocomplete = "off";
-  input.autofocus = true;
-  input.placeholder = "Search…";
-  input.setAttribute("role", "combobox");
-  input.setAttribute("aria-label", "Search " + label.toLowerCase());
-  input.setAttribute("aria-expanded", "true");
-  input.setAttribute("aria-controls", list.id);
-  input.setAttribute("aria-autocomplete", "list");
-  empty.hidden = true;
-  list.append(empty);
+  list.tabIndex = -1;
   choices.forEach(([value, name], i) => {
     const item = el("div", "combobox-item", name);
     item.id = id + "-option-" + i;
@@ -129,8 +112,7 @@ function customSelect(id, label, choices) {
     list.append(item);
   });
   trigger.append(valueLabel, chevron);
-  search.append(searchIcon, input);
-  popup.append(search, list);
+  popup.append(list);
   wrapper.append(trigger, popup);
   fieldWrapper.append(labelEl, wrapper);
   field.replaceWith(fieldWrapper);
@@ -204,8 +186,8 @@ function controls() {
     const denominator = Math.max(1, days.length - 1),
       lo = ((daysBetween(days[0], start) - 1) / denominator) * 100,
       hi = ((daysBetween(days[0], end) - 1) / denominator) * 100;
-    $("range-shade").style.left = lo + "%";
-    $("range-shade").style.width = hi - lo + "%";
+    $("range-shade").style.left = `calc(6px + (100% - 12px) * ${lo / 100})`;
+    $("range-shade").style.width = `calc((100% - 12px) * ${(hi - lo) / 100})`;
     $("first-date").textContent = days[0];
     $("last-date").textContent = days.at(-1);
   }
@@ -308,34 +290,32 @@ function renderModels() {
       excludeReview: $("exclude-review").checked,
     }),
     totals = new Map(aggregate(available, metric).map((r) => [r.model, r]));
-  $("models").replaceChildren();
+  const existing = new Map([...$("models").children].map(group => [group.querySelector("button").dataset.focusKey.slice(6), group]));
+  for (const [name, group] of existing) if (!allModels.includes(name)) group.remove();
   for (const name of allModels) {
-    const group = el("div", "model-group"),
-      button = el("button", "toggle model-chip");
-    button.dataset.variant = "outline";
-    button.dataset.focusKey = "model:" + name;
-    button.append(swatch(name), document.createTextNode(modelName(name)));
+    const group = existing.get(name) || el("div", "model-group"),
+      button = group.querySelector("button") || el("button", "toggle model-chip");
+    if (!existing.has(name)) {
+      button.dataset.variant = "outline";
+      button.dataset.focusKey = "model:" + name;
+      button.append(swatch(name), document.createTextNode(modelName(name)));
+      button.append(el("span", "model-value"));
+      group.append(button);
+      $("models").append(group);
+    }
     const a = totals.get(name);
-    button.append(
-      el(
-        "span",
-        "model-value",
-        a
+    button.querySelector(".model-value").textContent = a
           ? a.value
             ? compact(a.value)
             : a.missing && !["requests", "rounds"].includes(metric)
               ? "Not recorded"
               : "0"
-          : "0",
-      ),
-    );
+          : "0";
     button.setAttribute("aria-pressed", String(models.has(name)));
     button.onclick = () => {
       models.has(name) ? models.delete(name) : models.add(name);
       render();
     };
-    group.append(button);
-    $("models").append(group);
   }
   $("all-models").textContent = allModels.every((m) => models.has(m))
     ? "Deselect all"
@@ -715,7 +695,7 @@ function renderSources() {
   }
 }
 let latestLoad = 0;
-async function load(endpoint = "/api/usage") {
+async function load(endpoint = "/api/usage", reset = false) {
   const request = ++latestLoad;
   $("refresh").disabled = true;
   $("status").textContent = "Reading usage records…";
@@ -728,6 +708,12 @@ async function load(endpoint = "/api/usage") {
         return r.json();
       }));
     if (request !== latestLoad) return;
+    if (reset) {
+      start = end = undefined;
+      models = new Set();
+      initialized = false;
+      saved.models = undefined;
+    }
     const knownModels = new Set(allModels);
     data = result;
     rows = normalize(data);
@@ -833,6 +819,54 @@ for (const which of ["start", "end"]) {
   $(which + "-date").onchange = (e) => setDate(e.target.value);
   $(which + "-slider").oninput = (e) => setDate(days[Number(e.target.value)]);
 }
+// One pointer surface chooses the nearest endpoint, including coincident thumbs.
+const rangeTrack = document.querySelector(".range-track");
+let rangeDrag, rangeCoincident;
+const rangeIndex = (event) => {
+  const box = rangeTrack.getBoundingClientRect();
+  return Math.max(0, Math.min(days.length - 1, Math.round((event.clientX - box.left - 6) / Math.max(1, box.width - 12) * (days.length - 1))));
+};
+const moveRange = (event) => {
+  const index = rangeIndex(event);
+  if (rangeCoincident !== undefined && index !== rangeCoincident) {
+    rangeDrag = index < rangeCoincident ? "start" : "end";
+    rangeCoincident = undefined;
+    $(rangeDrag + "-slider").focus({preventScroll: true});
+  }
+  const previousStart = start, previousEnd = end;
+  if (rangeDrag === "start") start = days[Math.min(index, daysBetween(days[0], end) - 1)];
+  else end = days[Math.max(index, daysBetween(days[0], start) - 1)];
+  if (start !== previousStart || end !== previousEnd) render();
+};
+rangeTrack.addEventListener("pointerdown", (event) => {
+  if (!days.length || !start || !end || event.button !== 0) return;
+  event.preventDefault();
+  const index = rangeIndex(event), lo = daysBetween(days[0], start) - 1, hi = daysBetween(days[0], end) - 1;
+  rangeDrag = Math.abs(index - lo) < Math.abs(index - hi) || (lo === hi && index <= lo) ? "start" : "end";
+  rangeCoincident = lo === hi && index === lo ? lo : undefined;
+  rangeTrack.setPointerCapture(event.pointerId);
+  $(rangeDrag + "-slider").focus({preventScroll: true});
+  $(rangeDrag + "-slider").dataset.dragging = "";
+  moveRange(event);
+});
+rangeTrack.addEventListener("pointermove", (event) => {
+  if (rangeDrag) moveRange(event);
+  else if (days.length && start && end) {
+    const index = rangeIndex(event);
+    const nearest = Math.abs(index - Number($("start-slider").value)) <= Math.abs(index - Number($("end-slider").value)) ? "start" : "end";
+    for (const which of ["start", "end"]) {
+      if (which === nearest) $(which + "-slider").dataset.hover = "";
+      else delete $(which + "-slider").dataset.hover;
+    }
+  }
+});
+rangeTrack.addEventListener("pointerleave", () => {
+  for (const which of ["start", "end"]) delete $(which + "-slider").dataset.hover;
+});
+for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) rangeTrack.addEventListener(event, () => {
+  rangeDrag = rangeCoincident = undefined;
+  for (const which of ["start", "end"]) delete $(which + "-slider").dataset.dragging;
+});
 document.querySelectorAll("[data-days]").forEach(
   (b) =>
     (b.onclick = () => {
@@ -846,13 +880,7 @@ document.querySelectorAll("[data-days]").forEach(
     }),
 );
 $("refresh").onclick = () => load(isDemo ? "/api/demo" : "/api/usage");
-$("demo").onclick = () => {
-  start = end = undefined;
-  models = new Set();
-  initialized = false;
-  saved.models = undefined;
-  load(isDemo ? "/api/local" : "/api/demo");
-};
+$("demo").onclick = () => load(isDemo ? "/api/local" : "/api/demo", true);
 $("export").onclick = () => {
   const fields = [
     "date",
