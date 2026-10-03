@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from extra_sources import AntigravityScanner, CopilotScanner, event_id
+from provider_sources import HistoryScanner, OpenUsageBridge
 
 ROOT = Path(__file__).resolve().parent
 KST = ZoneInfo(os.environ.get('CHRONICLES_TIMEZONE','UTC'))
@@ -103,6 +104,8 @@ class Collector:
         self.antigravity = AntigravityScanner() if roots is None else None
         self.copilot = CopilotScanner() if roots is None else None
         self.import_path = ROOT / ".local" / "imports" / "macmini.json" if roots is None else None
+        self.history = HistoryScanner() if roots is None else None
+        self.bridge = OpenUsageBridge() if roots is None else None
         self.local_events = []
         self.local_missing = []
 
@@ -155,6 +158,13 @@ class Collector:
                     date=day(timestamp)
                     if date:
                         unique[event_id(key)]=('copilot',date,model,values)
+            history_files = 0
+            if self.history:
+                history_events, history_files, history_errors = self.history.scan()
+                errors.extend(history_errors)
+                for key, provider, ts, model, values in history_events:
+                    date = day(ts)
+                    if date: unique[event_id(key)] = (provider, date, model, values)
             self.local_events = [dict(id=k, provider=p, date=d, model=m, **v) for k,(p,d,m,v) in unique.items()]
             devices = {k: {'this-mac'} for k in unique}
             imported_at = None
@@ -191,7 +201,7 @@ class Collector:
                     row[metric] += value
                 row['requests'] += 1
             data = [dict(provider=p, date=d, model=m, device=device, **v, total=v['input'] + v['output'] + v['cacheRead'] + v['cacheWrite']) for (p, d, m, device), v in sorted(rows.items())]
-            return dict(rows=data, missing=list(missing.values()), legacyAntigravity=len(legacy_ids), timezone=str(KST), updatedAt=datetime.now(timezone.utc).isoformat(), files=len(active)+ag_files+cp_files, importedAt=imported_at, localEvents=len(self.local_events), remoteEvents=sum('macmini' in v for v in devices.values()), events=len(unique), skipped=skipped, errors=sorted(set(errors)))
+            return dict(accountSnapshots=self.bridge.collect() if self.bridge else [], rows=data, missing=list(missing.values()), legacyAntigravity=len(legacy_ids), timezone=str(KST), updatedAt=datetime.now(timezone.utc).isoformat(), files=len(active)+ag_files+cp_files+history_files, importedAt=imported_at, localEvents=len(self.local_events), remoteEvents=sum('macmini' in v for v in devices.values()), events=len(unique), skipped=skipped, errors=sorted(set(errors)))
 
 
 collector = Collector()
@@ -211,7 +221,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(500, 'Usage scan failed')
                 return
             mime = 'application/json'
-        elif path in ('/', '/index.html', '/app.js', '/analytics.mjs', '/style.css', '/favicon.svg'):
+        elif path in ('/', '/index.html', '/app.js', '/analytics.mjs', '/style.css', '/shadcn.css', '/favicon.svg'):
             filename = 'index.html' if path == '/' else path[1:]
             content = (ROOT / 'web' / filename).read_bytes()
             mime = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'mjs':'text/javascript', 'svg':'image/svg+xml'}[filename.rsplit('.', 1)[-1]]
@@ -239,6 +249,8 @@ if __name__ == '__main__':
         report = json.loads((ROOT/'examples'/'demo.json').read_text()) if DEMO else collector.collect()
         page = (ROOT/'web'/'index.html').read_text()
         styles = (ROOT/'web'/'style.css').read_text()
+        shadcn = (ROOT/'web'/'shadcn.css').read_text()
+        page = re.sub(r'<link\s+rel="stylesheet"\s+href="/shadcn.css"\s*/?>', lambda _: '<style>'+shadcn+'</style>', page)
         analytics = (ROOT/'web'/'analytics.mjs').read_text().replace('export ', '')
         app = re.sub(r'^import .*?;\n', '', (ROOT/'web'/'app.js').read_text(), count=1, flags=re.S)
         payload = json.dumps(report).replace('<', '\\u003c')

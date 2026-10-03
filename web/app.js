@@ -63,11 +63,179 @@ function swatch(name) {
   s.style.background = modelColor(name);
   return s;
 }
-for (const [key, name] of Object.entries(METRICS)) {
-  const o = el("option", "", name);
-  o.value = key;
-  $("metric").append(o);
+// Select-only combobox: custom shadcn-html popover/listbox, no native menu.
+function customSelect(id, label, choices) {
+  const original = $(id),
+    wrapper = el("div", "combobox"),
+    trigger = el("button", "btn combobox-trigger"),
+    valueLabel = el("span", "combobox-value"),
+    chevron = el("span", "combobox-chevron", "⌄"),
+    popup = el("div", "combobox-content"),
+    list = el("div", "combobox-listbox");
+  trigger.id = id;
+  trigger.type = "button";
+  trigger.dataset.variant = "outline";
+  trigger.setAttribute("role", "combobox");
+  trigger.setAttribute("aria-label", label);
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  popup.id = id + "-popup";
+  popup.setAttribute("popover", "auto");
+  list.id = id + "-list";
+  list.setAttribute("role", "listbox");
+  list.setAttribute("aria-label", label);
+  trigger.setAttribute("aria-controls", list.id);
+  chevron.setAttribute("aria-hidden", "true");
+  trigger.append(valueLabel, chevron);
+  popup.append(list);
+  wrapper.append(trigger);
+  document.body.append(popup);
+  let selected = choices[0][0],
+    highlighted = 0,
+    search = "",
+    searchTimer;
+  const items = choices.map(([value, name], i) => {
+    const item = el("div", "combobox-item", name);
+    item.id = id + "-option-" + i;
+    item.dataset.value = value;
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", "false");
+    item.addEventListener("click", () => choose(i));
+    item.addEventListener("pointermove", () => highlight(i));
+    list.append(item);
+    return item;
+  });
+  const update = () => {
+    valueLabel.textContent =
+      choices.find(([value]) => value === selected)?.[1] || choices[0][1];
+    for (const item of items)
+      item.setAttribute(
+        "aria-selected",
+        String(item.dataset.value === selected),
+      );
+  };
+  Object.defineProperty(trigger, "value", {
+    get: () => selected,
+    set: (value) => {
+      if (choices.some((c) => c[0] === value)) selected = value;
+      update();
+    },
+  });
+  const isOpen = () => popup.matches(":popover-open");
+  const position = () => {
+    const box = trigger.getBoundingClientRect(),
+      width = Math.min(innerWidth - 16, Math.max(box.width, 180));
+    popup.style.width = width + "px";
+    popup.style.left =
+      Math.max(8, Math.min(box.left, innerWidth - width - 8)) + "px";
+    const height = popup.getBoundingClientRect().height;
+    popup.style.top =
+      (box.bottom + height + 8 > innerHeight && box.top > height
+        ? box.top - height - 4
+        : box.bottom + 4) + "px";
+  };
+  const highlight = (index) => {
+    highlighted = Math.max(0, Math.min(index, items.length - 1));
+    items.forEach((item, i) =>
+      item.toggleAttribute("data-highlighted", i === highlighted),
+    );
+    trigger.setAttribute("aria-activedescendant", items[highlighted].id);
+    if (isOpen()) items[highlighted].scrollIntoView({ block: "nearest" });
+  };
+  const open = () => {
+    popup.showPopover();
+    position();
+    trigger.setAttribute("aria-expanded", "true");
+    highlight(choices.findIndex((c) => c[0] === selected));
+  };
+  const close = (focus = true) => {
+    popup.hidePopover();
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.removeAttribute("aria-activedescendant");
+    if (focus) trigger.focus({ preventScroll: true });
+  };
+  const choose = (index) => {
+    trigger.value = choices[index][0];
+    close();
+    trigger.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  trigger.addEventListener("click", () => (isOpen() ? close() : open()));
+  trigger.addEventListener("keydown", (event) => {
+    if (
+      [
+        "ArrowDown",
+        "ArrowUp",
+        "Home",
+        "End",
+        "Enter",
+        " ",
+        "Escape",
+        "Tab",
+      ].includes(event.key)
+    ) {
+      if (event.key === "Tab") {
+        if (isOpen()) close(false);
+        return;
+      }
+      event.preventDefault();
+      if (event.key === "Escape") {
+        if (isOpen()) close();
+        return;
+      }
+      if (!isOpen()) {
+        open();
+        if (!["Home", "End"].includes(event.key)) return;
+      }
+      if (event.key === "ArrowDown") highlight(highlighted + 1);
+      else if (event.key === "ArrowUp") highlight(highlighted - 1);
+      else if (event.key === "Home") highlight(0);
+      else if (event.key === "End") highlight(items.length - 1);
+      else choose(highlighted);
+    } else if (
+      event.key.length === 1 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      clearTimeout(searchTimer);
+      search += event.key.toLowerCase();
+      searchTimer = setTimeout(() => (search = ""), 700);
+      if (!isOpen()) open();
+      const index = choices.findIndex((c) =>
+        c[1].toLowerCase().startsWith(search),
+      );
+      if (index >= 0) highlight(index);
+    }
+  });
+  popup.addEventListener("toggle", (event) => {
+    trigger.setAttribute("aria-expanded", String(event.newState === "open"));
+    if (event.newState === "closed")
+      trigger.removeAttribute("aria-activedescendant");
+  });
+  window.addEventListener("resize", () => {
+    if (isOpen()) position();
+  });
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (isOpen()) position();
+    },
+    true,
+  );
+  original.replaceWith(wrapper);
+  update();
 }
+customSelect("metric", "Metric", Object.entries(METRICS));
+for (const [id, label] of [
+  ["device", "Device"],
+  ["grouping", "Group by"],
+])
+  customSelect(
+    id,
+    label,
+    [...$(id).options].map((option) => [option.value, option.textContent]),
+  );
 $("exclude-review").checked = saved.excludeReview !== false;
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
 systemTheme.addEventListener("change", () => {
@@ -80,7 +248,9 @@ function controls() {
   $("harnesses").replaceChildren();
   for (const [key, name] of Object.entries(HARNESSES)) {
     const group = el("div", "harness-group"),
-      button = el("button", "", name);
+      button = el("button", "toggle", name);
+    button.dataset.variant = "outline";
+    button.dataset.focusKey = "harness:" + key;
     button.setAttribute("aria-pressed", String(harnesses.has(key)));
     button.setAttribute("aria-label", `Toggle ${name}`);
     button.onclick = () => {
@@ -95,23 +265,27 @@ function controls() {
   )
     ? "Deselect all"
     : "Select all";
-  for (const which of ["start", "end"]) {
-    const input = $(which + "-date");
-    input.min = days[0];
-    input.max = days.at(-1);
-    input.value = which === "start" ? start : end;
-    const slider = $(which + "-slider");
-    slider.max = days.length - 1;
-    slider.value = daysBetween(days[0], input.value) - 1;
-    slider.setAttribute("aria-valuetext", input.value);
+  for (const id of ["start-date", "end-date", "start-slider", "end-slider"])
+    $(id).disabled = !days.length;
+  if (days.length) {
+    for (const which of ["start", "end"]) {
+      const input = $(which + "-date");
+      input.min = days[0];
+      input.max = days.at(-1);
+      input.value = which === "start" ? start : end;
+      const slider = $(which + "-slider");
+      slider.max = days.length - 1;
+      slider.value = daysBetween(days[0], input.value) - 1;
+      slider.setAttribute("aria-valuetext", input.value);
+    }
+    const denominator = Math.max(1, days.length - 1),
+      lo = ((daysBetween(days[0], start) - 1) / denominator) * 100,
+      hi = ((daysBetween(days[0], end) - 1) / denominator) * 100;
+    $("range-shade").style.left = lo + "%";
+    $("range-shade").style.width = hi - lo + "%";
+    $("first-date").textContent = days[0];
+    $("last-date").textContent = days.at(-1);
   }
-  const denominator = Math.max(1, days.length - 1),
-    lo = ((daysBetween(days[0], start) - 1) / denominator) * 100,
-    hi = ((daysBetween(days[0], end) - 1) / denominator) * 100;
-  $("range-shade").style.left = lo + "%";
-  $("range-shade").style.width = hi - lo + "%";
-  $("first-date").textContent = days[0];
-  $("last-date").textContent = days.at(-1);
   document
     .querySelectorAll("[data-view]")
     .forEach((b) =>
@@ -122,7 +296,14 @@ function controls() {
   $("group-control").hidden = view !== "bubbles";
 }
 function render() {
-  if (!days.length || !start || !end) return;
+  const focused = document.activeElement;
+  const focusKey = focused?.dataset.focusKey;
+  const keyboardFocus = focused?.matches(":focus-visible");
+  if (!days.length || !start || !end) {
+    controls();
+    persist();
+    return;
+  }
   controls();
   persist();
   activeRows = filterRows(rows, {
@@ -186,6 +367,13 @@ function render() {
   renderModels();
   if (view === "daily") drawDaily();
   else drawBubbles();
+  if (focusKey && keyboardFocus) {
+    for (const button of document.querySelectorAll("[data-focus-key]"))
+      if (button.dataset.focusKey === focusKey) {
+        button.focus({ preventScroll: true });
+        break;
+      }
+  }
 }
 function renderModels() {
   const available = filterRows(rows, {
@@ -200,7 +388,9 @@ function renderModels() {
   $("models").replaceChildren();
   for (const name of allModels) {
     const group = el("div", "model-group"),
-      button = el("button", "model-chip");
+      button = el("button", "toggle model-chip");
+    button.dataset.variant = "outline";
+    button.dataset.focusKey = "model:" + name;
     button.append(swatch(name), document.createTextNode(modelName(name)));
     const a = totals.get(name);
     button.append(
@@ -225,8 +415,8 @@ function renderModels() {
     $("models").append(group);
   }
   $("all-models").textContent = allModels.every((m) => models.has(m))
-    ? "Deselect all models"
-    : "Select all models";
+    ? "Deselect all"
+    : "Select all";
 }
 const svgNS = "http://www.w3.org/2000/svg";
 function svgNode(tag, attrs, text) {
@@ -454,7 +644,8 @@ function drawBubbles() {
     column.append(head);
     ranks[i].forEach((m, rank) => {
       const model = el("div", "bubble-model");
-      model.style.height = rowHeights[rank] + "px";
+      model.style.minHeight = rowHeights[rank] + "px";
+      model.dataset.rank = rank;
       const circle = el("div", "bubble"),
         space = el("div", "bubble-space"),
         diameter = 64 * Math.sqrt(m.value / maxCount);
@@ -485,6 +676,120 @@ function drawBubbles() {
       );
     $("chapters").append(column);
   });
+  const heads = [...$("chapters").querySelectorAll(".chapter-head")];
+  const headHeight = Math.ceil(
+    Math.max(0, ...heads.map((h) => h.getBoundingClientRect().height)),
+  );
+  for (const head of heads) head.style.height = headHeight + "px";
+  for (let rank = 0; rank < rankCount; rank++) {
+    const cells = [...$("chapters").querySelectorAll(`[data-rank="${rank}"]`)];
+    const names = cells.map((cell) => cell.querySelector(".bubble-name"));
+    const nameHeight = Math.ceil(
+      Math.max(0, ...names.map((name) => name.getBoundingClientRect().height)),
+    );
+    for (const name of names) name.style.height = nameHeight + "px";
+    const height = Math.ceil(
+      Math.max(0, ...cells.map((cell) => cell.getBoundingClientRect().height)),
+    );
+    for (const cell of cells) cell.style.height = height + "px";
+  }
+}
+function renderSources() {
+  $("sources-panel").hidden = true;
+  $("sources").replaceChildren();
+  if (data.demo) return;
+  for (const [id, name] of Object.entries(HARNESSES)) {
+    const card = el("article", "source-card"),
+      history = rows.filter((r) => r.provider === id),
+      snapshots = (data.accountSnapshots || [])
+        .filter((s) => s.provider === id)
+        .map((s) => ({
+          ...s,
+          lines: (s.lines || []).filter(
+            (line) =>
+              line.label !== "Error" &&
+              !["no data", "no usage data", "—"].includes(
+                String(line.value || line.text || "").toLowerCase(),
+              ),
+          ),
+        }));
+    if (!snapshots.some((s) => s.lines?.length)) continue;
+    card.append(el("h3", "", name));
+    if (history.length)
+      card.append(
+        el(
+          "p",
+          "",
+          `${exact(history.reduce((n, r) => n + r.requests, 0))} history records`,
+        ),
+      );
+    for (const snapshot of snapshots) {
+      if (snapshot.plan) card.append(el("p", "", snapshot.plan));
+      if (snapshot.fetchedAt && !Number.isNaN(Date.parse(snapshot.fetchedAt)))
+        card.append(
+          el(
+            "p",
+            "",
+            "Account updated " +
+              new Date(snapshot.fetchedAt).toLocaleString("en"),
+          ),
+        );
+      for (const line of snapshot.lines) {
+        const row = el("div", "source-metric");
+        row.append(el("span", "", line.label));
+        let value = line.value || line.text || "No data";
+        if (
+          line.type === "progress" &&
+          Number.isFinite(line.used) &&
+          Number.isFinite(line.limit)
+        ) {
+          const kind = line.format?.kind;
+          value =
+            kind === "percent"
+              ? `${exact(line.used)}%`
+              : `${kind === "dollars" ? "$" : ""}${exact(line.used)} / ${exact(line.limit)}`;
+        }
+        row.append(el("strong", "", value));
+        if (line.type === "barChart") {
+          row.lastChild.textContent = "";
+          card.append(row);
+          const chart = el("div", "source-trend");
+          const max = Math.max(1, ...(line.points || []).map((p) => p.value));
+          for (const point of line.points || []) {
+            const bar = el("div");
+            bar.style.height = Math.max(1, (point.value / max) * 100) + "%";
+            bar.title = `${point.label}: ${point.valueLabel || exact(point.value)}`;
+            chart.append(bar);
+          }
+          chart.setAttribute("role", "img");
+          chart.setAttribute(
+            "aria-label",
+            `${name} ${line.label}: ${(line.points || []).map((p) => p.label + " " + (p.valueLabel || exact(p.value))).join(", ")}`,
+          );
+          card.append(chart);
+        } else card.append(row);
+        if (line.subtitle || line.note)
+          card.append(el("p", "", line.subtitle || line.note));
+        if (line.type === "progress" && line.limit > 0) {
+          const meter = el("progress");
+          meter.max = line.limit;
+          meter.value = Math.max(0, Math.min(line.used || 0, line.limit));
+          meter.setAttribute("aria-label", `${name} ${line.label}`);
+          card.append(meter);
+        }
+        if (line.resetsAt && !Number.isNaN(Date.parse(line.resetsAt)))
+          card.append(
+            el(
+              "p",
+              "",
+              "Resets " + new Date(line.resetsAt).toLocaleString("en"),
+            ),
+          );
+      }
+    }
+    $("sources").append(card);
+    $("sources-panel").hidden = false;
+  }
 }
 let latestLoad = 0;
 async function load(endpoint = "/api/usage") {
@@ -504,6 +809,7 @@ async function load(endpoint = "/api/usage") {
     data = result;
     rows = normalize(data);
     isDemo = !!data.demo;
+    renderSources();
     const dates = rows.map((r) => r.date).sort();
     allModels = [...new Set(rows.map((r) => r.model))].sort();
     if (!initialized) {
@@ -516,6 +822,9 @@ async function load(endpoint = "/api/usage") {
     if (dates.length)
       for (let d = dates[0]; d <= dates.at(-1); d = addDays(d, 1)) days.push(d);
     if (!days.length) {
+      controls();
+      $("daily-view").hidden = false;
+      $("bubble-view").hidden = true;
       $("chart").replaceChildren();
       $("chapters").replaceChildren();
       $("models").replaceChildren();
@@ -678,3 +987,11 @@ new ResizeObserver(() => {
   }, 100);
 }).observe($("chart-wrap"));
 load();
+
+let chapterResizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(chapterResizeTimer);
+  chapterResizeTimer = setTimeout(() => {
+    if (rows.length && view === "bubbles") drawBubbles();
+  }, 100);
+});

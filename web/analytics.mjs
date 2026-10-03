@@ -3,6 +3,13 @@ export const HARNESSES = {
   claude: "Claude Code",
   copilot: "Copilot",
   antigravity: "Antigravity",
+  cursor: "Cursor",
+  devin: "Devin",
+  grok: "Grok",
+  ollama: "Ollama",
+  opencode: "OpenCode",
+  openrouter: "OpenRouter",
+  zai: "Z.ai",
 };
 export const METRICS = {
   requests: "Requests / calls",

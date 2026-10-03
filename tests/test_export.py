@@ -16,6 +16,8 @@ class ExportTests(unittest.TestCase):
             page = target.read_text()
             self.assertNotIn('src="/app.js"', page)
             self.assertNotIn('href="/style.css"', page)
+            self.assertNotIn('href="/shadcn.css"', page)
+            self.assertIn('--primary-foreground:', page)
             self.assertNotIn('from "./analytics.mjs"', page)
             self.assertIn('<style>', page)
             self.assertIn('data:image/svg+xml,', page)
