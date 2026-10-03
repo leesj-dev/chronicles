@@ -15,6 +15,8 @@ class ExportTests(unittest.TestCase):
             subprocess.run([sys.executable, str(root/'server.py'), '--demo', '--export', str(target)], check=True, capture_output=True)
             page = target.read_text()
             self.assertNotIn('src="/app.js"', page)
+            self.assertNotIn('src="/combobox.js"', page)
+            self.assertIn('window.ChroniclesCombobox', page)
             self.assertNotIn('href="/style.css"', page)
             self.assertNotIn('href="/shadcn.css"', page)
             self.assertIn('--primary-foreground:', page)

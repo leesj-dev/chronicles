@@ -221,7 +221,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(500, 'Usage scan failed')
                 return
             mime = 'application/json'
-        elif path in ('/', '/index.html', '/app.js', '/analytics.mjs', '/style.css', '/shadcn.css', '/favicon.svg'):
+        elif path in ('/', '/index.html', '/app.js', '/combobox.js', '/analytics.mjs', '/style.css', '/shadcn.css', '/favicon.svg'):
             filename = 'index.html' if path == '/' else path[1:]
             content = (ROOT / 'web' / filename).read_bytes()
             mime = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'mjs':'text/javascript', 'svg':'image/svg+xml'}[filename.rsplit('.', 1)[-1]]
@@ -251,6 +251,8 @@ if __name__ == '__main__':
         styles = (ROOT/'web'/'style.css').read_text()
         shadcn = (ROOT/'web'/'shadcn.css').read_text()
         page = re.sub(r'<link\s+rel="stylesheet"\s+href="/shadcn.css"\s*/?>', lambda _: '<style>'+shadcn+'</style>', page)
+        combobox = (ROOT/'web'/'combobox.js').read_text()
+        page = page.replace('<script src="/combobox.js"></script>', '<script>'+combobox+'</script>')
         analytics = (ROOT/'web'/'analytics.mjs').read_text().replace('export ', '')
         app = re.sub(r'^import .*?;\n', '', (ROOT/'web'/'app.js').read_text(), count=1, flags=re.S)
         payload = json.dumps(report).replace('<', '\\u003c')

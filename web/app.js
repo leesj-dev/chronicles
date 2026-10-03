@@ -63,20 +63,31 @@ function swatch(name) {
   s.style.background = modelColor(name);
   return s;
 }
-// Select-only combobox: custom shadcn-html popover/listbox, no native menu.
+// Build the documented shadcn-html structure and connect its value to chart state.
 function customSelect(id, label, choices) {
   const original = $(id),
+    field = original.closest("label"),
+    fieldWrapper = el("div", "select-field"),
+    labelEl = el("span", "field-label", label),
     wrapper = el("div", "combobox"),
     trigger = el("button", "btn combobox-trigger"),
     valueLabel = el("span", "combobox-value"),
-    chevron = el("span", "combobox-chevron", "⌄"),
+    chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg"),
     popup = el("div", "combobox-content"),
-    list = el("div", "combobox-listbox");
+    search = el("div", "combobox-search"),
+    input = el("input", "combobox-search-input"),
+    list = el("div", "combobox-listbox"),
+    empty = el("div", "combobox-empty", "No results found.");
+  if (field.id) fieldWrapper.id = field.id;
+  fieldWrapper.hidden = field.hidden;
+  labelEl.id = id + "-label";
   trigger.id = id;
   trigger.type = "button";
   trigger.dataset.variant = "outline";
-  trigger.setAttribute("role", "combobox");
-  trigger.setAttribute("aria-label", label);
+  trigger.dataset.size = "sm";
+  wrapper.style.width = "14rem";
+  valueLabel.id = id + "-value";
+  trigger.setAttribute("aria-labelledby", labelEl.id + " " + valueLabel.id);
   trigger.setAttribute("aria-haspopup", "listbox");
   trigger.setAttribute("aria-expanded", "false");
   popup.id = id + "-popup";
@@ -84,147 +95,59 @@ function customSelect(id, label, choices) {
   list.id = id + "-list";
   list.setAttribute("role", "listbox");
   list.setAttribute("aria-label", label);
-  trigger.setAttribute("aria-controls", list.id);
+  trigger.setAttribute("aria-controls", popup.id);
+  chevron.setAttribute("class", "combobox-chevron");
   chevron.setAttribute("aria-hidden", "true");
-  trigger.append(valueLabel, chevron);
-  popup.append(list);
-  wrapper.append(trigger);
-  document.body.append(popup);
-  let selected = choices[0][0],
-    highlighted = 0,
-    search = "",
-    searchTimer;
-  const items = choices.map(([value, name], i) => {
+  chevron.setAttribute("width", "16");
+  chevron.setAttribute("height", "16");
+  chevron.setAttribute("viewBox", "0 0 24 24");
+  chevron.setAttribute("fill", "none");
+  chevron.setAttribute("stroke", "currentColor");
+  chevron.setAttribute("stroke-width", "2");
+  chevron.innerHTML = '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>';
+  const searchIcon = chevron.cloneNode(false);
+  searchIcon.setAttribute("class", "combobox-search-icon");
+  searchIcon.innerHTML =
+    '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+  input.type = "text";
+  input.autocomplete = "off";
+  input.autofocus = true;
+  input.placeholder = "Search…";
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-label", "Search " + label.toLowerCase());
+  input.setAttribute("aria-expanded", "true");
+  input.setAttribute("aria-controls", list.id);
+  input.setAttribute("aria-autocomplete", "list");
+  empty.hidden = true;
+  list.append(empty);
+  choices.forEach(([value, name], i) => {
     const item = el("div", "combobox-item", name);
     item.id = id + "-option-" + i;
     item.dataset.value = value;
     item.setAttribute("role", "option");
     item.setAttribute("aria-selected", "false");
-    item.addEventListener("click", () => choose(i));
-    item.addEventListener("pointermove", () => highlight(i));
     list.append(item);
-    return item;
   });
-  const update = () => {
-    valueLabel.textContent =
-      choices.find(([value]) => value === selected)?.[1] || choices[0][1];
-    for (const item of items)
-      item.setAttribute(
-        "aria-selected",
-        String(item.dataset.value === selected),
-      );
-  };
+  trigger.append(valueLabel, chevron);
+  search.append(searchIcon, input);
+  popup.append(search, list);
+  wrapper.append(trigger, popup);
+  fieldWrapper.append(labelEl, wrapper);
+  field.replaceWith(fieldWrapper);
+  const component = window.ChroniclesCombobox.init(wrapper);
+  let selected = choices[0][0];
   Object.defineProperty(trigger, "value", {
     get: () => selected,
     set: (value) => {
-      if (choices.some((c) => c[0] === value)) selected = value;
-      update();
+      selected = value;
+      component.setValue(value);
     },
   });
-  const isOpen = () => popup.matches(":popover-open");
-  const position = () => {
-    const box = trigger.getBoundingClientRect(),
-      width = Math.min(innerWidth - 16, Math.max(box.width, 180));
-    popup.style.width = width + "px";
-    popup.style.left =
-      Math.max(8, Math.min(box.left, innerWidth - width - 8)) + "px";
-    const height = popup.getBoundingClientRect().height;
-    popup.style.top =
-      (box.bottom + height + 8 > innerHeight && box.top > height
-        ? box.top - height - 4
-        : box.bottom + 4) + "px";
-  };
-  const highlight = (index) => {
-    highlighted = Math.max(0, Math.min(index, items.length - 1));
-    items.forEach((item, i) =>
-      item.toggleAttribute("data-highlighted", i === highlighted),
-    );
-    trigger.setAttribute("aria-activedescendant", items[highlighted].id);
-    if (isOpen()) items[highlighted].scrollIntoView({ block: "nearest" });
-  };
-  const open = () => {
-    popup.showPopover();
-    position();
-    trigger.setAttribute("aria-expanded", "true");
-    highlight(choices.findIndex((c) => c[0] === selected));
-  };
-  const close = (focus = true) => {
-    popup.hidePopover();
-    trigger.setAttribute("aria-expanded", "false");
-    trigger.removeAttribute("aria-activedescendant");
-    if (focus) trigger.focus({ preventScroll: true });
-  };
-  const choose = (index) => {
-    trigger.value = choices[index][0];
-    close();
+  trigger.value = selected;
+  wrapper.addEventListener("combobox:change", (event) => {
+    selected = event.detail;
     trigger.dispatchEvent(new Event("change", { bubbles: true }));
-  };
-  trigger.addEventListener("click", () => (isOpen() ? close() : open()));
-  trigger.addEventListener("keydown", (event) => {
-    if (
-      [
-        "ArrowDown",
-        "ArrowUp",
-        "Home",
-        "End",
-        "Enter",
-        " ",
-        "Escape",
-        "Tab",
-      ].includes(event.key)
-    ) {
-      if (event.key === "Tab") {
-        if (isOpen()) close(false);
-        return;
-      }
-      event.preventDefault();
-      if (event.key === "Escape") {
-        if (isOpen()) close();
-        return;
-      }
-      if (!isOpen()) {
-        open();
-        if (!["Home", "End"].includes(event.key)) return;
-      }
-      if (event.key === "ArrowDown") highlight(highlighted + 1);
-      else if (event.key === "ArrowUp") highlight(highlighted - 1);
-      else if (event.key === "Home") highlight(0);
-      else if (event.key === "End") highlight(items.length - 1);
-      else choose(highlighted);
-    } else if (
-      event.key.length === 1 &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
-      event.preventDefault();
-      clearTimeout(searchTimer);
-      search += event.key.toLowerCase();
-      searchTimer = setTimeout(() => (search = ""), 700);
-      if (!isOpen()) open();
-      const index = choices.findIndex((c) =>
-        c[1].toLowerCase().startsWith(search),
-      );
-      if (index >= 0) highlight(index);
-    }
   });
-  popup.addEventListener("toggle", (event) => {
-    trigger.setAttribute("aria-expanded", String(event.newState === "open"));
-    if (event.newState === "closed")
-      trigger.removeAttribute("aria-activedescendant");
-  });
-  window.addEventListener("resize", () => {
-    if (isOpen()) position();
-  });
-  window.addEventListener(
-    "scroll",
-    () => {
-      if (isOpen()) position();
-    },
-    true,
-  );
-  original.replaceWith(wrapper);
-  update();
 }
 customSelect("metric", "Metric", Object.entries(METRICS));
 for (const [id, label] of [

@@ -23,7 +23,7 @@ class CursorTests(unittest.TestCase):
                 def __exit__(self,*args):pass
                 def read(self,*args):return csv.encode()
             source=CursorAccountHistory(HistoryScanner.parse_cursor,cache_path=cache,state_path=db)
-            with patch.object(source.opener,'open',return_value=Response()) as fetch:
+            with patch('cursor_source.time.monotonic', return_value=10), patch.object(source.opener,'open',return_value=Response()) as fetch:
                 events,errors=source.collect()
                 request=fetch.call_args.args[0]
                 self.assertTrue(request.full_url.startswith('https://cursor.com/api/dashboard/export-usage-events-csv?'))

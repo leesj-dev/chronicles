@@ -2,7 +2,7 @@
 
 ## shadcn-html
 
-Button, select, checkbox, toggle and combobox styles and semantic tokens are vendored from [codylindley/shadcn-html](https://github.com/codylindley/shadcn-html/tree/0964e09e16034e39a244589d457a866171991f1d). The dark token selector is adapted to follow system appearance. No CDN or runtime dependency is required.
+Button, select, checkbox, toggle and combobox styles and semantic tokens are vendored from [codylindley/shadcn-html](https://github.com/codylindley/shadcn-html/tree/0964e09e16034e39a244589d457a866171991f1d). The dark token selector is adapted to follow system appearance. The combobox JavaScript is adapted from the same pinned upstream source, with declarative popover invocation, a chart-state adapter and positioning fallback. Filtering and keyboard handling retain its implementation. No CDN or runtime dependency is required.
 
 MIT License
 

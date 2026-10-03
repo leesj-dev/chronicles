@@ -73,7 +73,7 @@ class CursorAccountHistory:
 
     def collect(self):
         if self.cached is None: self.cached = self.load_cache()
-        if time.monotonic()-self.updated < 300: return self.cached, self.errors
+        if self.updated and time.monotonic()-self.updated < 300: return self.cached, self.errors
         self.updated = time.monotonic()
         self.errors = []
         try:

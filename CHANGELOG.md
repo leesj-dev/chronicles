@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Use the original shadcn-html combobox markup and CSS; remove conflicting control padding and height overrides.
+- Adapt the upstream shadcn-html combobox JavaScript and fix trigger re-click reopening.
+- Fix first Cursor fetch on freshly booted systems with under five minutes of uptime.
+
 - Apply Nova control density and content-measured chapter headers; hide empty source cards and all demo sources.
 - Automatically load Cursor usage history using the existing app login, with private counter-only caching.
 - Replace native dropdown menus with keyboard-accessible shadcn popover/listbox controls.
