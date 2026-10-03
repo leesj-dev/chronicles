@@ -2,7 +2,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from extra_sources import generation, CopilotScanner, event_id
+from adapters.antigravity import generation
+from adapters.copilot import CopilotAdapter
+from adapters.base import event_id
 from server import Collector
 
 
@@ -34,7 +36,7 @@ class ExtraTests(unittest.TestCase):
             path=Path(directory)/'session.jsonl'
             records=[dict(kind=0,v=dict(sessionId='session',requests=[])),dict(kind=2,k=['requests'],v=[dict(requestId='request',timestamp=1773964800000,modelId='copilot/gpt-5.4')]),dict(kind=1,k=['requests',0,'result'],v=dict(usage=dict(promptTokens=100,completionTokens=20))),dict(kind=1,k=['requests',0,'result'],v=dict(usage=dict(promptTokens=100,completionTokens=30),metadata=dict(toolCallRounds=[{},{}])))]
             path.write_text('\n'.join(map(json.dumps,records)))
-            events=CopilotScanner.parse(path)
+            events=CopilotAdapter.parse(path)
             self.assertEqual(len(events),1)
             self.assertEqual(events[0][3]['output'],30)
             self.assertEqual(events[0][3]['rounds'],2)
@@ -44,7 +46,7 @@ class ExtraTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'legacy.json'
             path.write_text(json.dumps(dict(sessionId='old',requests=[dict(requestId='request',timestamp=1762084800000,modelId='copilot/claude-sonnet-4.5',result=dict(metadata=dict(toolCallRounds=[{},{}])))])))
-            events,missing=CopilotScanner.parse(path,with_coverage=True)
+            events,missing=CopilotAdapter.parse(path,with_coverage=True)
             self.assertEqual(events,[])
             self.assertEqual(len(missing),1)
             self.assertEqual(missing[0]['rounds'],2)

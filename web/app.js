@@ -1,5 +1,6 @@
 import {
   HARNESSES,
+  historyHarnesses,
   METRICS,
   addDays,
   daysBetween,
@@ -150,10 +151,13 @@ function controls() {
   $("metric").value = metric;
   $("device").value = device;
   $("grouping").value = grouping;
-  $("harnesses").replaceChildren();
-  for (const [key, name] of Object.entries(HARNESSES)) {
-    const group = el("div", "harness-group"),
-      button = el("button", "toggle", name);
+  const available = historyHarnesses(rows);
+  const existing = new Map([...$("harnesses").children].map(group => [group.querySelector("button").dataset.focusKey.slice(8), group]));
+  const visible = new Set(available.map(([key]) => key));
+  for (const [key, group] of existing) if (!visible.has(key)) group.remove();
+  for (const [key, name] of available) {
+    const group = existing.get(key) || el("div", "harness-group"),
+      button = group.querySelector("button") || el("button", "toggle", name);
     button.dataset.variant = "outline";
     button.dataset.focusKey = "harness:" + key;
     button.setAttribute("aria-pressed", String(harnesses.has(key)));
@@ -162,12 +166,13 @@ function controls() {
       harnesses.has(key) ? harnesses.delete(key) : harnesses.add(key);
       render();
     };
-    group.append(button);
-    $("harnesses").append(group);
+    if (!existing.has(key)) {
+      group.append(button);
+      $("harnesses").append(group);
+    }
   }
-  $("all-harnesses").textContent = Object.keys(HARNESSES).every((k) =>
-    harnesses.has(k),
-  )
+  $("all-harnesses").disabled = !available.length;
+  $("all-harnesses").textContent = available.length && available.every(([key]) => harnesses.has(key))
     ? "Deselect all"
     : "Select all";
   for (const id of ["start-date", "end-date", "start-slider", "end-slider"])
@@ -776,9 +781,12 @@ async function load(endpoint = "/api/usage", reset = false) {
   }
 }
 $("all-harnesses").onclick = () => {
-  harnesses = Object.keys(HARNESSES).every((k) => harnesses.has(k))
-    ? new Set()
-    : new Set(Object.keys(HARNESSES));
+  const available = historyHarnesses(rows).map(([key]) => key);
+  const allSelected = available.every(key => harnesses.has(key));
+  for (const key of available) {
+    if (allSelected) harnesses.delete(key);
+    else harnesses.add(key);
+  }
   render();
 };
 $("all-models").onclick = () => {

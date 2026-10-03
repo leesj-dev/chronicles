@@ -4,7 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from provider_sources import HistoryScanner, OpenUsageBridge
+from adapters import GrokAdapter, OpenCodeAdapter, CursorAdapter
+from adapters.limits import OpenUsageBridge
 from server import Collector
 
 
@@ -15,13 +16,14 @@ class ProviderTests(unittest.TestCase):
             record = {'params': {'_meta': {'eventId':'turn-1','agentTimestampMs':1760000000000}, 'update': {'sessionUpdate':'turn_completed','usage': {'modelUsage': {'grok-4': {'inputTokens':100,'cachedReadTokens':40,'cacheCreationTokens':10,'outputTokens':20,'reasoningTokens':5}}}}}}
             for name in ['a','b']:
                 (root/f'{name}.jsonl').write_text(json.dumps(record)+'\ninvalid\n')
-            scanner = HistoryScanner(grok=root,opencode=root/'none',cursor=root/'none.csv')
-            events, files, errors = scanner.scan()
+            scanner = GrokAdapter(root)
+            result = scanner.scan()
+            events, files, errors = result.events, result.files, result.errors
             self.assertEqual(files,2)
             self.assertFalse(errors)
             self.assertEqual(events[0][0], events[1][0])
             self.assertEqual(events[0][-1], dict(input=50,output=20,cacheRead=40,cacheWrite=10))
-            collector = Collector(roots=[('claude',root/'none')]);collector.history=scanner
+            collector = Collector(roots=[('claude',root/'none')]);collector.adapters=[scanner]
             report = collector.collect()
             self.assertEqual(report['events'],1)
             self.assertEqual(report['rows'][0]['total'],120)
@@ -37,7 +39,7 @@ class ProviderTests(unittest.TestCase):
             c.execute('INSERT INTO session_message VALUES(?,?,?,?)',('same',1760000000000,json.dumps(new),'assistant'))
             c.execute('INSERT INTO message VALUES(?,?,?)',('unfinished',1760000000000,json.dumps(old|dict(time={}))))
             c.commit();c.close()
-            events=HistoryScanner.parse_opencode(db)
+            events=OpenCodeAdapter.parse(db)
             self.assertEqual(len(events),1)
             self.assertEqual(events[0][-1],dict(input=10,output=8,cacheRead=4,cacheWrite=2))
 
@@ -47,12 +49,12 @@ class ProviderTests(unittest.TestCase):
             header='Date,Model,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output Tokens\n'
             row='2026-01-01T12:00:00Z,claude-sonnet-4.5,10,20,30,40\n'
             p.write_text(header+row+row)
-            events=HistoryScanner.parse_cursor(p)
+            events=CursorAdapter.parse(p)
             self.assertEqual(len(events),2)
             self.assertNotEqual(events[0][0],events[1][0])
             self.assertEqual(sum(events[0][-1].values()),100)
             p.write_text('Date,Model\n2026-01-01,auto\n')
-            with self.assertRaises(ValueError):HistoryScanner.parse_cursor(p)
+            with self.assertRaises(ValueError):CursorAdapter.parse(p)
 
     def test_bridge_supports_legacy_and_array_snapshots_and_never_creates_history(self):
         snapshot=dict(providerId='ollama',plan='Pro',fetchedAt='2026-01-01T00:00:00Z',lines=[dict(type='progress',label='Weekly',used=30,limit=100,format=dict(kind='percent')),dict(type='text',label='Plan',value='Pro'),dict(type='badge',label='State',text='Active'),dict(type='barChart',label='Trend',points=[dict(label='Mon',value=10,valueLabel='10 tokens')]),dict(type='secret',label='ignored',value='ignore')],apiKey='must-not-be-forwarded')

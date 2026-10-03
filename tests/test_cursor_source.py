@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
-from cursor_source import CursorAccountHistory, NoRedirect
-from provider_sources import HistoryScanner
+from adapters.cursor_account import CursorAccountHistory, NoRedirect
+from adapters.cursor import CursorAdapter
 
 
 class CursorTests(unittest.TestCase):
@@ -22,8 +22,8 @@ class CursorTests(unittest.TestCase):
                 def __enter__(self):return self
                 def __exit__(self,*args):pass
                 def read(self,*args):return csv.encode()
-            source=CursorAccountHistory(HistoryScanner.parse_cursor,cache_path=cache,state_path=db)
-            with patch('cursor_source.time.monotonic', return_value=10), patch.object(source.opener,'open',return_value=Response()) as fetch:
+            source=CursorAccountHistory(CursorAdapter.parse,cache_path=cache,state_path=db)
+            with patch('adapters.cursor_account.time.monotonic', return_value=10), patch.object(source.opener,'open',return_value=Response()) as fetch:
                 events,errors=source.collect()
                 request=fetch.call_args.args[0]
                 self.assertTrue(request.full_url.startswith('https://cursor.com/api/dashboard/export-usage-events-csv?'))
@@ -38,7 +38,7 @@ class CursorTests(unittest.TestCase):
                 retained,errors=source.collect()
             self.assertEqual(retained,events);self.assertNotIn(token,str(errors))
             self.assertIn('sign in',errors[0])
-            loaded=CursorAccountHistory(HistoryScanner.parse_cursor,cache_path=cache,state_path=root/'absent')
+            loaded=CursorAccountHistory(CursorAdapter.parse,cache_path=cache,state_path=root/'absent')
             with patch.object(loaded,'access_token',return_value=None):
                 self.assertEqual(loaded.collect()[0],events)
             self.assertIsNone(NoRedirect().redirect_request(request,None,302,'Found',{},'https://other.example'))

@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 class UsageTests(unittest.TestCase):
     def test_korean_midnight(self):
-        with patch('server.KST', ZoneInfo('Asia/Seoul')):
+        with patch('adapters.base.KST', ZoneInfo('Asia/Seoul')):
             self.assertEqual(day('2026-10-01T15:00:00Z'), '2026-10-02')
             self.assertEqual(day('2026-10-01T14:59:59Z'), '2026-10-01')
 

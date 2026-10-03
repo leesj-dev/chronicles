@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   normalize,
+  historyHarnesses,
   filterRows,
   aggregate,
   percentage,
@@ -92,4 +93,15 @@ test("periods cover the range once, clip edges and use actual dates", () => {
 test("small shares are readable and never claim zero usage", () => {
   assert.equal(percentage(1, 10000), "<0.1%");
   assert.equal(percentage(1, 0), "—");
+});
+
+test("harness availability comes from history, including missing-token requests", () => {
+  const rows = normalize({
+    rows: [{provider: "codex", model: "gpt-5.4", date: "2026-01-01", requests: 1, total: 10}],
+    missing: [{provider: "copilot", date: "2026-01-02", model: "sonnet"}],
+    accountSnapshots: [{provider: "cursor", lines: [{type: "progress", used: 20}]}],
+  });
+  assert.deepEqual(historyHarnesses(rows).map(([key]) => key), ["codex", "copilot"]);
+  assert.deepEqual(historyHarnesses([]), []);
+  assert.deepEqual(historyHarnesses([{provider: "cursor", requests: 0, total: 0}]), []);
 });

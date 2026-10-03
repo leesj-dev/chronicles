@@ -142,6 +142,11 @@ export function normalize(data) {
     });
   return rows.filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date));
 }
+// Availability reflects loaded history, independent of chart filters and quotas.
+export function historyHarnesses(rows) {
+  const present = new Set(rows.filter(row => row.requests > 0 || row.total > 0).map(row => row.provider));
+  return Object.entries(HARNESSES).filter(([key]) => present.has(key));
+}
 export function filterRows(
   rows,
   { start, end, harnesses, models, device = "all", excludeReview = true },

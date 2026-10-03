@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Unify seven history providers behind provider-specific adapters and a common ScanResult contract.
+- Show only harnesses with loaded usage history; keep availability independent of chart filters.
+
 - Match the official Nova slider and checkbox dimensions, icons and focus rings.
 - Remove dropdown search while retaining listbox keyboard selection.
 - Fix date-range pointer routing, coincident handles and selected-track alignment.
