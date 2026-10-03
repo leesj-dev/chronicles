@@ -12,6 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from paths import ROOT
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_opener
@@ -26,7 +27,7 @@ class NoRedirect(HTTPRedirectHandler):
 class CursorAccountHistory:
     def __init__(self, parser, cache_path=None, state_path=None):
         self.parser = parser
-        self.cache_path = cache_path or Path(__file__).resolve().parent.parent/'.local/cursor-history.json'
+        self.cache_path = cache_path or ROOT/'.local/cursor-history.json'
         if state_path is not None:
             self.state_path = state_path
         elif sys.platform == 'darwin':

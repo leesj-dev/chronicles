@@ -12,7 +12,7 @@ class ExportTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / 'snapshot.html'
-            subprocess.run([sys.executable, str(root/'server.py'), '--demo', '--export', str(target)], check=True, capture_output=True)
+            subprocess.run([sys.executable, str(root/'src/server.py'), '--demo', '--export', str(target)], check=True, capture_output=True, cwd=directory)
             page = target.read_text()
             self.assertNotIn('src="/app.js"', page)
             self.assertNotIn('src="/combobox.js"', page)

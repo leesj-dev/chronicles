@@ -69,6 +69,14 @@ class AdapterTests(unittest.TestCase):
                 self.assertEqual(adapter.scan().files, 0)
                 self.assertEqual(adapter.cache, {})
 
+    def test_private_data_stays_in_repository_root(self):
+        from adapters.cursor_account import CursorAccountHistory
+        from paths import ROOT, SRC
+        self.assertEqual(SRC, ROOT/'src')
+        self.assertEqual(CursorAdapter(account=False).csv_path, ROOT/'.local/imports/cursor.csv')
+        self.assertEqual(CursorAccountHistory(CursorAdapter.parse).cache_path, ROOT/'.local/cursor-history.json')
+        self.assertEqual(Collector().import_path, ROOT/'.local/imports/macmini.json')
+
     def test_registry_groups_codex_roots_into_one_adapter(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -1,5 +1,5 @@
 /* Adapted from shadcn-html combobox.js at 0964e09e16034e39a244589d457a866171991f1d.
- * MIT, Copyright (c) 2026 Cody Lindley. Full license: THIRD_PARTY_NOTICES.md.
+ * MIT, Copyright (c) 2026 Cody Lindley. Full license: shadcn.css.
  * Integration changes: declarative popover invoker, change event/value adapter,
  * selected-option highlight, and positioning fallback. Search is omitted for these short option lists; keyboard navigation retains
  * the upstream implementation.

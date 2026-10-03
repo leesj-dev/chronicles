@@ -5,11 +5,11 @@
   "type": "module",
   "description": "Your AI usage story across models, harnesses, and time.",
   "scripts": {
-    "start": "python3 server.py",
-    "demo": "python3 server.py --demo",
+    "start": "python3 src/server.py",
+    "demo": "python3 src/server.py --demo",
     "test": "node --test tests/*.test.mjs",
-    "test:collectors": "python3 -m unittest discover -s tests",
-    "check": "node --check web/combobox.js && node --check web/app.js && node --check web/analytics.mjs && python3 -m py_compile server.py sync.py adapters/*.py"
+    "test:collectors": "python3 -m unittest discover -s tests -t .",
+    "check": "node --check src/web/combobox.js && node --check src/web/app.js && node --check src/web/analytics.mjs && python3 -m py_compile src/server.py src/sync.py src/paths.py src/adapters/*.py"
   },
   "license": "MIT"
 }

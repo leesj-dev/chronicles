@@ -5,6 +5,7 @@ import sqlite3
 import csv
 from io import StringIO
 from pathlib import Path
+from paths import ROOT
 from .base import ScanResult, CachedFileAdapter, event_id, tokens, timestamp
 from .cursor_account import CursorAccountHistory
 
@@ -14,7 +15,7 @@ class CursorAdapter(CachedFileAdapter):
 
     def __init__(self, csv_path=None, account=True):
         super().__init__()
-        self.csv_path = csv_path if csv_path is not None else Path(__file__).resolve().parent.parent/'.local/imports/cursor.csv'
+        self.csv_path = csv_path if csv_path is not None else ROOT/'.local/imports/cursor.csv'
         self.account = CursorAccountHistory(self.parse) if account else None
 
     def paths(self):

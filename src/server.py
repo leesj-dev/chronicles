@@ -11,7 +11,7 @@ from adapters import create_adapters
 from adapters.base import KST, day, number, event_id
 from adapters.limits import OpenUsageBridge
 
-ROOT = Path(__file__).resolve().parent
+from paths import ROOT, SRC
 class Collector:
     def __init__(self, roots=None):
         self.adapters = create_adapters(roots)
@@ -103,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
             mime = 'application/json'
         elif path in ('/', '/index.html', '/app.js', '/combobox.js', '/analytics.mjs', '/style.css', '/shadcn.css', '/favicon.svg'):
             filename = 'index.html' if path == '/' else path[1:]
-            content = (ROOT / 'web' / filename).read_bytes()
+            content = (SRC / 'web' / filename).read_bytes()
             mime = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'mjs':'text/javascript', 'svg':'image/svg+xml'}[filename.rsplit('.', 1)[-1]]
         else:
             self.send_error(404)
@@ -127,18 +127,18 @@ if __name__ == '__main__':
     DEMO = args.demo
     if args.export:
         report = json.loads((ROOT/'examples'/'demo.json').read_text()) if DEMO else collector.collect()
-        page = (ROOT/'web'/'index.html').read_text()
-        styles = (ROOT/'web'/'style.css').read_text()
-        shadcn = (ROOT/'web'/'shadcn.css').read_text()
+        page = (SRC/'web'/'index.html').read_text()
+        styles = (SRC/'web'/'style.css').read_text()
+        shadcn = (SRC/'web'/'shadcn.css').read_text()
         page = re.sub(r'<link\s+rel="stylesheet"\s+href="/shadcn.css"\s*/?>', lambda _: '<style>'+shadcn+'</style>', page)
-        combobox = (ROOT/'web'/'combobox.js').read_text()
+        combobox = (SRC/'web'/'combobox.js').read_text()
         page = page.replace('<script src="/combobox.js"></script>', '<script>'+combobox+'</script>')
-        analytics = (ROOT/'web'/'analytics.mjs').read_text().replace('export ', '')
-        app = re.sub(r'^import .*?;\n', '', (ROOT/'web'/'app.js').read_text(), count=1, flags=re.S)
+        analytics = (SRC/'web'/'analytics.mjs').read_text().replace('export ', '')
+        app = re.sub(r'^import .*?;\n', '', (SRC/'web'/'app.js').read_text(), count=1, flags=re.S)
         payload = json.dumps(report).replace('<', '\\u003c')
         page = re.sub(r'<link\s+rel="stylesheet"\s+href="/style.css"\s*/?>', lambda _: '<style>'+styles+'</style>', page)
         page = page.replace('<script type="module" src="/app.js"></script>', '<script>window.CHRONICLES_DATA='+payload+';</script><script type="module">'+analytics+'\n'+app+'</script>')
-        favicon = (ROOT/'web'/'favicon.svg').read_text()
+        favicon = (SRC/'web'/'favicon.svg').read_text()
         import urllib.parse
         page = page.replace('href="/"', 'href="#"')
         page = page.replace('/favicon.svg', 'data:image/svg+xml,'+urllib.parse.quote(favicon))

@@ -2,119 +2,130 @@
 
 **Your AI usage story across models, harnesses, and time.**
 
-Chronicles is a local-first, open-source usage explorer with native history adapters and an optional bridge covering all 11 providers in the OpenUsage macOS app. Compare daily model usage or see how your model mix evolves across chapters. No Chronicles cloud account, build step, or third-party runtime package is required. Optional account integrations reuse the provider login you already have.
+Chronicles is an open-source dashboard for exploring your AI usage history. Compare daily model usage, see when your model mix changed, and bring together records from multiple devices. It runs locally with Python’s standard library and vanilla JavaScript—no account, installation step, build process, or third-party runtime packages required.
 
-## Start
+![Model chapters with fictional data](docs/chapters.png)
 
-Requires Python 3.10+ and a modern browser. Node.js 20+ is optional for development checks. VS Code Copilot and Antigravity discovery currently targets macOS; Codex and Claude use their standard home directories on other systems.
+## Quick start
+
+Requires **Python 3.10+** and a modern browser. Node.js 20+ is optional for development checks. Copilot and Antigravity discovery currently targets macOS; other adapters use their provider’s standard data locations.
 
 ```sh
 git clone https://github.com/leesj-dev/chronicles.git
 cd chronicles
-python3 server.py
+python3 src/server.py
 ```
 
-Open **http://127.0.0.1:8768/**. The first scan can take a while for large histories; subsequent scans cache unchanged files in memory.
+Open [localhost:8768](http://127.0.0.1:8768/). The first scan can take a while for large histories; later scans reuse cached files.
 
-For fictional sample data:
+To explore fictional sample data:
 
 ```sh
-python3 server.py --demo
+python3 src/server.py --demo
 ```
 
-You can also switch between demo and local data in the app. Demo screenshots and `examples/demo.json` contain fictional records only.
+The app also lets you switch between local history and demo data. Demo screenshots and `examples/demo.json` contain fictional records only.
 
-![Model chapters with fictional data](docs/chapters.png)
+## Explore your history
 
-## Explore
+- **Daily timeline:** stacked daily bars with model tooltips and shared model colors.
+- **Model chapters:** ranked circles with model names directly above them. Circle area represents total usage; bars use a common scale to compare daily averages across chapters.
+- **Filters:** select models and harnesses individually or select/deselect all. Only harnesses with loaded usage records appear; changing chart filters keeps that list stable.
+- **Metrics:** requests/calls, total/input/output tokens, cache read/write, and Copilot response rounds. Both visualizations use the same metrics and colors.
+- **Date range:** drag either endpoint, enter dates, or choose a preset.
+- **Chapter boundaries:** model transitions, 7-day intervals, or calendar months.
+- **Export CSV:** exports the current selection; missing token counts remain blank.
+- **Appearance:** Nova-style controls automatically follow system light/dark mode.
 
-- **Daily timeline:** stacked daily bars with date/model tooltips, stable colors, and model multi-selection.
-- **Model chapters:** ranked, directly labeled circles; area shows each model's total, with a shared scale across chapters. Common-scale bars compare daily averages. Harness shares appear directly below each chapter total.
-- **Harness badges:** toggle one harness, or use Select all / Deselect all.
-- **Metrics:** requests/calls, total/input/output tokens, cache read/write, and Copilot response rounds. Both views use the same filters and colors.
-- **Date range:** independent start/end sliders, date inputs, and range presets.
-- **Chapters:** model-transition boundaries, 7-day intervals, or calendar months.
-- **Export:** CSV respects the current selection and preserves missing token values as blank cells.
-- **Theme:** automatically follows your system light/dark setting.
+Transition chapters begin when a new model appears with at least 3 records and 0.5% of selected requests. Boundaries stay at least 7 days apart. Filtering recalculates chapters, and daily averages include inactive days.
 
-Transition chapters use the first day of a newly appearing model with at least 3 records and 0.5% of selected requests. Boundaries stay at least 7 days apart. Filtering recalculates chapters. Daily averages include inactive days in each chapter.
+## Supported sources
 
-## Provider coverage
+Native history adapters support seven harnesses:
 
-The catalog matches [robinebers/openusage](https://github.com/robinebers/openusage), the macOS app: Claude, Codex, Cursor, Antigravity, Copilot, Devin, Grok, Ollama, OpenCode, OpenRouter, and Z.ai. This is a different project from the similarly named terminal OpenUsage dashboard.
+| Harness | History source | One requests/calls unit |
+| --- | --- | --- |
+| Codex | `~/.codex/sessions` and `archived_sessions` | Unique token-usage report |
+| Claude Code | `~/.claude/projects` | Response message carrying usage |
+| Copilot | macOS VS Code `workspaceStorage/*/chatSessions` | Saved user request with a result |
+| Antigravity | `~/.gemini/antigravity*/conversations/*.db` | Generation metadata record |
+| Cursor | Official account usage export or imported CSV | Exported aggregate row |
+| Grok | `~/.grok/sessions/**/*.jsonl` | Completed event per model |
+| OpenCode | `~/.local/share/opencode/opencode*.db`, v1 and v2 tables | Completed assistant/compaction message |
 
-| Provider                                 | Dated model history                                                          | Account metrics  |
-| ---------------------------------------- | ---------------------------------------------------------------------------- | ---------------- |
-| Claude Code, Codex, Copilot, Antigravity | Existing local scanners and SSH imports                                      | OpenUsage bridge |
-| Grok                                     | Completed CLI turns under `~/.grok/sessions`                                 | OpenUsage bridge |
-| OpenCode                                 | Read-only `opencode*.db`, both v1 and v2 tables, across all model providers  | OpenUsage bridge |
-| Cursor                                   | Automatic official usage export using your Cursor login; optional CSV import | OpenUsage bridge |
-| Devin, Ollama, OpenRouter, Z.ai          | No model/date ledger supplied by this bridge                                 | OpenUsage bridge |
+`CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GROK_HOME`, `OPENCODE_DATA_DIR`, and `XDG_DATA_HOME` override their respective data locations.
 
-Start OpenUsage and enable the providers you use. Chronicles reads its **read-only loopback API** at `127.0.0.1:6736` and shows text, progress, badge and trend metrics in **Sources**. The OpenUsage bridge reads no provider credentials. The separate Cursor history adapter reads the existing Cursor access token in memory and sends it only to Cursor’s official HTTPS export endpoint; it never copies credentials into reports or caches. Refresh reads cached snapshots; OpenUsage owns authentication and account polling. The bridge caches for up to 30 seconds, and each card displays the upstream fetch time. It supports old single-object and newer multi-account array responses. No OpenUsage installation is needed for native history or demo mode.
+### History & account limits
 
-Account quotas, spend windows and balances **do not become model usage records**. The bridge does not recover missing historical model breakdowns; adding a provider to the catalog does not imply full historical token coverage. Sources renders only available account metrics; providers without metrics are omitted. Sources is hidden entirely in demo mode. Ollama here means Ollama Cloud limits, matching OpenUsage; local Ollama inference history is not reconstructed. Currency amounts remain as reported and are not mixed into token or request totals.
+An optional integration with [OpenUsage](https://github.com/robinebers/openusage), the macOS app, displays account metrics for **Claude, Codex, Cursor, Antigravity, Copilot, Devin, Grok, Ollama, OpenCode, OpenRouter, and Z.ai**. Start OpenUsage and enable the providers you use. Chronicles reads its loopback API at `127.0.0.1:6736`; OpenUsage manages account authentication and polling.
 
-Cursor history loads automatically from the official dashboard export using the existing Cursor app login (local state DB, or macOS `cursor-access-token` Keychain entry). It requests history from January 1, 2025 by default; override with `CHRONICLES_CURSOR_START=YYYY-MM-DD`. Counters are cached for five minutes and preserved in ignored `.local/cursor-history.json`, with no raw CSV, account identity or credentials. Authentication failures retain previous counters and ask you to sign in again through Cursor; Chronicles does not overwrite or rotate app credentials. Redirects are refused to prevent cookie forwarding. Available history depends on Cursor's export retention.
+Only available metrics are shown, and this panel is hidden in demo mode. Snapshots are cached for up to 30 seconds and display the upstream update time. Multi-account responses are supported. OpenUsage is optional for native history and demo mode.
 
-An optional manual export at `.local/imports/cursor.csv` is also accepted. Automatic and manual overlapping rows deduplicate. CSV rows are aggregate usage records, so count comparisons are approximate.
+Quotas, balances, and spend windows do not become dated model records. The bridge supplies no historical model ledger for Devin, Ollama, OpenRouter, or Z.ai. Ollama here refers to Ollama Cloud limits. Currency values stay separate from token and request totals.
 
-## Timezone
+### Cursor history
 
-Dates default to UTC. Set an IANA timezone before launching or syncing:
+Chronicles can fetch Cursor’s official usage export using the existing app login, read from local state or the macOS `cursor-access-token` Keychain entry. History starts at January 1, 2025 by default; override with `CHRONICLES_CURSOR_START=YYYY-MM-DD`.
+
+Normalized counters are cached for five minutes and preserved in `.local/cursor-history.json`. Credentials remain in memory and are sent only to Cursor’s HTTPS export endpoint; redirects are refused. Authentication failures retain cached history. Sign in through Cursor to renew access. Available history depends on Cursor’s export retention.
+
+You can also place a Cursor usage CSV at `.local/imports/cursor.csv`. Overlapping automatic and manual records deduplicate.
+
+## Timezone and other devices
+
+Dates default to UTC. Set an IANA timezone before launching:
 
 ```sh
-CHRONICLES_TIMEZONE=Asia/Seoul python3 server.py
+CHRONICLES_TIMEZONE=Asia/Seoul python3 src/server.py
 ```
 
-`CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GROK_HOME`, `OPENCODE_DATA_DIR`, and `XDG_DATA_HOME` override their respective log roots.
-
-## Another device over SSH
-
-Configure an SSH host with working batch authentication and Python 3.10+ on the remote device, then run:
+To import another device, configure an SSH host with batch authentication and Python 3.10+, then run:
 
 ```sh
-python3 sync.py --host YOUR_SSH_HOST
+CHRONICLES_TIMEZONE=Asia/Seoul python3 src/sync.py --host YOUR_SSH_HOST
 ```
 
-The scanner executes over SSH without installing files remotely. Only normalized usage metadata is copied into ignored `.local/imports/macmini.json`; conversation text and credentials are not copied. One remote snapshot is supported; syncing another host replaces it. Local and imported duplicate records are merged. Use the same `CHRONICLES_TIMEZONE` for the server and sync.
+Use the same timezone for the server and sync. The adapters execute over SSH without installing files remotely. Only normalized usage metadata is saved in `.local/imports/macmini.json`; conversation text and credentials are not copied. One remote snapshot is supported, and syncing another host replaces it. Duplicate local and remote records merge.
 
 ## Standalone HTML
 
-Export an interactive snapshot with the current record set:
-
 ```sh
-python3 server.py --export exports/chronicles.html
-python3 server.py --demo --export exports/demo.html
+python3 src/server.py --export exports/chronicles.html
+python3 src/server.py --demo --export exports/demo.html
 ```
 
-Open it directly in a browser. Both charts, filters, and sliders work offline. The export includes normalized usage metadata and available account metric snapshots, not conversation content or credentials. Unlike CSV, its filters initially include the complete exported date range. Keep personal snapshots private if you do not intend to share your usage history.
+Open the resulting file directly in a browser. Both charts and their filters work offline. HTML snapshots contain the complete exported record set and available account metrics; CSV exports follow the current selection. Keep personal snapshots private unless you intend to share your usage history.
 
-## What counts as a record?
+## Counting and coverage
 
-| Harness     | Source                                          | One requests/calls unit                |
-| ----------- | ----------------------------------------------- | -------------------------------------- |
-| Codex       | `~/.codex/sessions` and `archived_sessions`     | Unique token-usage report              |
-| Claude Code | `~/.claude/projects`                            | Response message carrying usage        |
-| Copilot     | macOS VS Code `workspaceStorage/*/chatSessions` | Saved user request with a result       |
-| Antigravity | `~/.gemini/antigravity*/conversations/*.db`     | Generation metadata record             |
-| Grok        | `~/.grok/sessions/**/*.jsonl`                   | Completed event per model              |
-| OpenCode    | `~/.local/share/opencode/opencode*.db`          | Completed assistant/compaction message |
-| Cursor      | `.local/imports/cursor.csv`                     | Exported aggregate row                 |
+Requests/calls treats each saved unit alike for approximate usage-pattern comparisons. It does not imply equal work, compute, or billing. Copilot response rounds count saved tool-call rounds and are a separate Copilot-only metric.
 
-Requests/calls deliberately treats these units alike for approximate usage-pattern comparisons. Copilot response rounds count saved `toolCallRounds`; this is a separate Copilot-only metric. These units do not establish equivalent work, compute, or billing.
+Older Copilot records may preserve dates and models without tokens. They count toward requests and available rounds, never invented token totals. Legacy encrypted Antigravity `.pb` conversations are excluded and reported. Deleted or unpreserved records cannot be recovered.
 
-Older Copilot requests often retain model/date information without numeric token values: they count toward requests and available response rounds, never invented token totals. Legacy encrypted Antigravity `.pb` conversations are reported as excluded. Deleted or unpreserved records cannot be included. Incomplete token coverage is visible in the app.
+Cached input stays separate from uncached input, and reasoning is not counted twice. Claude cache read/write remain separate; Copilot has no preserved cache breakdown. OpenCode’s separately stored reasoning tokens contribute to output.
 
-Codex cached input is separated from input and reasoning is not added twice to output. Claude cache read/write are separate counters. Copilot does not preserve cache breakdown; those columns remain zero for measured records. Antigravity generation metadata contains input, output, and cached-read counters.
+## Project structure
 
-## Privacy
+```text
+src/
+  server.py          Local HTTP server, collection, and HTML export
+  sync.py            Read-only SSH import
+  paths.py           Source and repository data roots
+  adapters/          Provider-specific history adapters and account integrations
+  web/               HTML, CSS, vanilla JavaScript, and shared analytics
+examples/            Fictional demo records
+tests/               Analytics, adapters, collection, and export tests
+docs/                Demo screenshots
+.local/              Private caches and imports (gitignored)
+```
 
-The server binds only to loopback, validates Host, serves an explicit asset allowlist, and uses a same-origin content policy. No analytics, external fonts, remote scripts, or conversation uploads. Cursor’s optional automatic adapter makes an authenticated HTTPS request to Cursor for your usage export; other account metrics come from OpenUsage over loopback. The API returns normalized usage metadata. Private imports, exports, and Python caches are gitignored. The repository contains synthetic sample data only.
+Every history adapter exposes `scan() -> ScanResult`. Results contain normalized events, file counts, errors, skipped records, and coverage metadata. The collector handles date conversion, deduplication, device merging, and aggregation. Account-limit snapshots remain a separate integration.
+
+Source assets live under `src/`; private data stays in the repository’s `.local/` directory, independent of the working directory.
 
 ## Development
 
-No installation step is needed.
+No installation step is needed:
 
 ```sh
 npm run check
@@ -122,8 +133,10 @@ npm test
 npm run test:collectors
 ```
 
-See [DESIGN.md](DESIGN.md) for the design direction and shared model color rules, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributions.
+Python tests use standard-library `unittest`; JavaScript tests use Node’s built-in test runner. See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
-## License
+## Privacy and license
 
-[MIT](LICENSE). Independent project; not affiliated with OpenAI, Anthropic, GitHub, Google, or the upstream projects. Controls are vendored from [shadcn-html](https://github.com/codylindley/shadcn-html) under MIT; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Design direction references [VoltAgent/awesome-design-md](https://github.com/VoltAgent/awesome-design-md). Antigravity counter parsing follows the observed generation metadata format described by [OpenUsage](https://github.com/robinebers/openusage/blob/main/docs/providers/antigravity.md).
+The server binds only to loopback, validates Host, serves an explicit asset allowlist, and uses a same-origin content policy. No analytics, external fonts, remote scripts, or conversation uploads. Private imports, exports, and Python caches are gitignored. Cursor’s optional account adapter contacts Cursor directly; other account metrics come from OpenUsage over loopback.
+
+[MIT](LICENSE). Independent project; not affiliated with OpenAI, Anthropic, GitHub, Google, or the upstream projects. Controls derive from [shadcn-html](https://github.com/codylindley/shadcn-html) under MIT; the full notice is retained in `src/web/shadcn.css`. Nova styling follows [shadcn/ui](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/styles/style-nova.css). Antigravity counter parsing follows the observed format described by [OpenUsage](https://github.com/robinebers/openusage/blob/main/docs/providers/antigravity.md).

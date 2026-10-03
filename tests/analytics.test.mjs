@@ -10,7 +10,7 @@ import {
   modelId,
   periods,
   summarize,
-} from "../web/analytics.mjs";
+} from "../src/web/analytics.mjs";
 const fixture = {
   rows: [
     {

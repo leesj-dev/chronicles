@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Move application code and browser assets into src/; retain private data in the repository root.
+- Revise setup, source coverage, architecture and development documentation.
+
 - Unify seven history providers behind provider-specific adapters and a common ScanResult contract.
 - Show only harnesses with loaded usage history; keep availability independent of chart filters.
 
