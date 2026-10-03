@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Chronicles: your AI usage story across models, harnesses, and time."
+    />
+    <title>Chronicles · AI usage</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="wordmark" href="/" aria-label="Chronicles home"
+        ><span class="brand-mark" aria-hidden="true">◴</span>Chronicles</a
+      ><span id="updated" class="header-updated"></span>
+      <div class="header-actions">
+        <button id="demo">Preview demo</button
+        ><button
+          id="refresh"
+          class="icon-button"
+          aria-label="Refresh usage"
+          title="Refresh usage"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            aria-hidden="true"
+          >
+            <path d="M20 7v5h-5M4 17v-5h5" />
+            <path d="M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9" />
+          </svg>
+        </button>
+      </div>
+    </header>
+    <main>
+      <div class="intro">
+        <div>
+          <h1>Your model history, in perspective.</h1>
+          <p>Explore what you used, when you switched, and how much changed.</p>
+        </div>
+        <span id="source-label" class="tag">Reading local records</span>
+      </div>
+      <section class="filters" aria-label="Usage filters">
+        <div class="filter-line">
+          <span class="filter-title">Harnesses</span>
+          <div id="harnesses" class="badge-list"></div>
+          <button id="all-harnesses">Deselect all</button>
+        </div>
+        <div class="filter-line">
+          <label>Metric<select id="metric"></select></label
+          ><label
+            >Device<select id="device">
+              <option value="all">All devices</option>
+              <option value="this-mac">This device</option>
+              <option value="macmini">SSH import</option>
+            </select></label
+          ><label class="review"
+            ><input type="checkbox" id="exclude-review" checked />Exclude
+            automatic reviews</label
+          ><button id="export">Export CSV</button>
+        </div>
+      </section>
+      <section class="range-panel" aria-label="Date range">
+        <div class="range-top">
+          <div class="date-inputs">
+            <label>From<input type="date" id="start-date" /></label
+            ><span>→</span><label>To<input type="date" id="end-date" /></label>
+          </div>
+          <div class="presets">
+            <button data-days="7">7 days</button
+            ><button data-days="30">30 days</button
+            ><button data-days="90">90 days</button
+            ><button data-days="all">All time</button>
+          </div>
+        </div>
+        <div class="range-track">
+          <div id="mini-chart" aria-hidden="true"></div>
+          <div id="range-shade"></div>
+          <input
+            id="start-slider"
+            type="range"
+            min="0"
+            max="1"
+            value="0"
+            aria-label="Range start"
+          /><input
+            id="end-slider"
+            type="range"
+            min="0"
+            max="1"
+            value="1"
+            aria-label="Range end"
+          />
+        </div>
+        <div class="range-ends">
+          <span id="first-date"></span><span id="last-date"></span>
+        </div>
+      </section>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <p id="status" aria-live="polite">Reading usage records…</p>
+      <section class="visual-panel">
+        <div class="visual-top">
+          <div class="tabs" aria-label="Visualization">
+            <button data-view="daily" aria-pressed="true">Daily timeline</button
+            ><button data-view="bubbles" aria-pressed="false">
+              Model chapters
+            </button>
+          </div>
+          <label id="group-control" hidden
+            >Group by<select id="grouping">
+              <option value="eras">Model transitions</option>
+              <option value="weeks">7-day intervals</option>
+              <option value="months">Calendar months</option>
+            </select></label
+          >
+        </div>
+        <div class="chart-summary">
+          <div>
+            <strong id="total">—</strong
+            ><span id="metric-caption">Requests / calls</span>
+          </div>
+          <div><strong id="average">—</strong><span>Daily average</span></div>
+          <div>
+            <strong id="model-count">—</strong><span>Models selected</span>
+          </div>
+        </div>
+        <div id="daily-view">
+          <div id="chart-wrap">
+            <svg
+              id="chart"
+              role="img"
+              aria-label="Daily usage stacked by model"
+            ></svg>
+            <div id="tooltip" hidden></div>
+          </div>
+          <p id="chart-empty" hidden></p>
+        </div>
+        <div id="bubble-view" hidden>
+          <div id="chapters" class="chapters"></div>
+        </div>
+      </section>
+      <section class="model-panel">
+        <div class="section-title">
+          <h2>Models</h2>
+          <button id="all-models">Deselect all models</button>
+        </div>
+        <div id="models" class="model-list"></div>
+      </section>
+      <details class="method">
+        <summary>How these records are counted</summary>
+        <p>
+          Requests / calls treats each saved record as one unit across
+          harnesses: Codex usage reports, Claude response messages, Copilot user
+          requests, and Antigravity generation calls. Copilot response rounds
+          count the saved tool-call rounds separately. Missing token values stay
+          unknown and contribute only to count metrics. Daily averages include
+          days with no activity. Model transitions start a chapter when a new
+          model has at least 3 records and 0.5% of requests in the selected
+          range; boundaries are at least 7 days apart. These are records
+          preserved on your devices, not billing or a complete account history.
+        </p>
+      </details>
+    </main>
+  </body>
+</html>

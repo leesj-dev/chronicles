@@ -1,0 +1,8 @@
+.local/
+imports/
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+.env*
+exports/
