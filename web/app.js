@@ -122,7 +122,7 @@ function controls() {
   $("group-control").hidden = view !== "bubbles";
 }
 function render() {
-  if (!days.length) return;
+  if (!days.length || !start || !end) return;
   controls();
   persist();
   activeRows = filterRows(rows, {
