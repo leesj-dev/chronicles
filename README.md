@@ -4,7 +4,13 @@
 
 Chronicles is an open-source dashboard for exploring your AI usage history. Compare daily model usage, see when your model mix changed, and bring together records from multiple devices. It runs locally with Python’s standard library and vanilla JavaScript—no account, installation step, build process, or third-party runtime packages required.
 
-![Model chapters with fictional data](docs/chapters.png)
+### Daily timeline
+
+![Daily timeline with fictional data](docs/daily.jpg)
+
+### Model chapters
+
+![Model chapters with fictional data](docs/chapters.jpg)
 
 ## Quick start
 
