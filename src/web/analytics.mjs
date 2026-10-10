@@ -103,10 +103,10 @@ export function modelColor(name) {
     lightness = 55;
   if (n.includes("opus")) {
     hue = 275;
-    lightness = v >= 5.5 ? 36 : v >= 5 ? 48 : v >= 4.8 ? 60 : 72;
+    lightness = v >= 5.5 ? 72 : v >= 5 ? 60 : v >= 4.8 ? 48 : 36;
   } else if (n.includes("sonnet")) {
     hue = 26;
-    lightness = v >= 5.5 ? 36 : v >= 5 ? 48 : v >= 4.5 ? 60 : 72;
+    lightness = v >= 5.5 ? 72 : v >= 5 ? 60 : v >= 4.5 ? 48 : 36;
   } else if (n.includes("gpt")) {
     hue = n.includes("terra")
       ? 45
@@ -117,19 +117,19 @@ export function modelColor(name) {
           : 215;
     lightness =
       v >= 6.1
-        ? 35
+        ? 75
         : v >= 6
-          ? 43
+          ? 67
           : v >= 5.6
-            ? 51
+            ? 59
             : v >= 5.5
-              ? 59
+              ? 51
               : v >= 5.4
-                ? 67
-                : 75;
+                ? 43
+                : 35;
   } else if (n.includes("gemini")) {
     hue = 180;
-    lightness = v >= 3.8 ? 36 : v >= 3.7 ? 48 : v >= 3.1 ? 60 : 72;
+    lightness = v >= 3.8 ? 72 : v >= 3.7 ? 60 : v >= 3.1 ? 48 : 36;
   } else if (n.includes("fable")) hue = 325;
   else {
     hue = [...n].reduce((s, c) => s * 31 + c.charCodeAt(0), 0) % 360;
