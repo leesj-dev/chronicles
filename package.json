@@ -9,7 +9,7 @@
     "demo": "python3 src/server.py --demo",
     "test": "node --test tests/*.test.mjs",
     "test:collectors": "python3 -m unittest discover -s tests -t .",
-    "check": "node --check src/web/combobox.js && node --check src/web/app.js && node --check src/web/analytics.mjs && python3 -m py_compile src/server.py src/sync.py src/paths.py src/adapters/*.py"
+    "check": "node --check src/web/combobox.js && node --check src/web/calendar.js && node --check src/web/app.js && node --check src/web/analytics.mjs && python3 -m py_compile src/server.py src/sync.py src/paths.py src/adapters/*.py"
   },
   "license": "MIT"
 }

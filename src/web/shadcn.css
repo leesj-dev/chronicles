@@ -807,8 +807,8 @@ SOFTWARE.
       display: inline-block;
       width: 1rem;
       height: 1rem;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
-      background-size: contain;
+      background-color: currentColor;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
       flex-shrink: 0;
     }
 
@@ -1039,6 +1039,133 @@ SOFTWARE.
           outline-color: Highlight;
         }
       }
+    }
+  }
+}
+
+/* shadcn-html Calendar, same pinned revision and MIT license as above. */
+@layer components {
+  .calendar {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background-color: var(--card);
+    user-select: none;
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.25rem 0.5rem;
+  }
+
+  .calendar-heading {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  .calendar-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: transparent;
+    color: var(--foreground);
+    cursor: pointer;
+    transition: background-color 150ms ease;
+
+    &:hover {
+      background-color: var(--accent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+
+    & svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+  }
+
+  .calendar-grid {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+
+  .calendar-day-label {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .calendar-day {
+    width: 2.25rem;
+    height: 2.25rem;
+    text-align: center;
+    vertical-align: middle;
+    padding: 0;
+
+    & button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      font-size: 0.8125rem;
+      border: none;
+      border-radius: var(--radius-md);
+      background-color: transparent;
+      color: var(--foreground);
+      cursor: pointer;
+      transition: background-color 150ms ease, color 150ms ease;
+
+      &:hover {
+        background-color: var(--accent);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+    }
+
+    &[data-today] button {
+      background-color: var(--accent);
+      font-weight: 600;
+    }
+
+    &[data-selected] button {
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+
+      &:hover {
+        opacity: 0.9;
+      }
+    }
+
+    &[data-outside] button {
+      color: var(--muted-foreground);
+      opacity: 0.5;
+    }
+
+    &[data-disabled] button {
+      color: var(--muted-foreground);
+      opacity: 0.35;
+      cursor: not-allowed;
     }
   }
 }

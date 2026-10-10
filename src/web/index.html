@@ -5,22 +5,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="description" content="Chronicles: your AI usage story across models, harnesses, and time." />
-  <title>Chronicles · AI usage</title>
+  <title>Chronicles</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/shadcn.css" />
   <link rel="stylesheet" href="/style.css" />
   <script src="/combobox.js"></script>
+  <script src="/calendar.js"></script>
   <script type="module" src="/app.js"></script>
 </head>
 
 <body>
   <header>
-    <a class="wordmark" href="/" aria-label="Chronicles home"><span class="brand-mark"
-        aria-hidden="true">◴</span>Chronicles</a><span id="updated" class="header-updated"></span>
+    <a class="wordmark" href="/" aria-label="Chronicles home">Chronicles</a><span id="updated"
+      class="header-updated"></span>
     <div class="header-actions">
-      <button class="btn" data-variant="outline" id="demo">
-        Preview demo</button><button class="btn" data-variant="outline" data-size="icon" id="refresh"
-        aria-label="Refresh usage" title="Refresh usage">
+      <button class="btn" data-variant="outline" data-size="icon" id="refresh" aria-label="Refresh usage"
+        title="Refresh usage">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           aria-hidden="true">
           <path d="M20 7v5h-5M4 17v-5h5" />
@@ -30,18 +30,11 @@
     </div>
   </header>
   <main>
-    <div class="intro">
-      <div>
-        <h1>Your retrospective model history.</h1>
-        <p>Explore what you used, when you switched, and how much changed.</p>
-      </div>
-      <span id="source-label" class="tag">Reading local records</span>
-    </div>
     <section class="filters" aria-label="Usage filters">
       <div class="filter-line">
         <span class="filter-title">Harnesses</span>
         <div id="harnesses" class="badge-list"></div>
-        <button class="btn" data-variant="outline" id="all-harnesses">
+        <button class="btn" data-variant="ghost" id="all-harnesses">
           Deselect all
         </button>
       </div>
@@ -80,50 +73,81 @@
       </div>
     </section>
     <div id="notice" class="notice" role="status" hidden></div>
-    <p id="status" aria-live="polite">Reading usage records…</p>
-    <section class="visual-panel">
-      <div class="visual-top">
-        <div class="tabs" aria-label="Visualization">
-          <button class="toggle" data-view="daily" aria-pressed="true">
-            Daily timeline</button><button class="toggle" data-view="bubbles" aria-pressed="false">
-            Model chapters
-          </button>
+    <p id="status" role="status" hidden></p>
+    <div class="workspace">
+      <aside class="model-panel" aria-label="Model selection">
+        <div class="chart-summary" aria-label="Selected period summary">
+          <div>
+            <span id="metric-caption">Requests / calls</span><strong id="total">—</strong>
+          </div>
+          <div><span>Daily average</span><strong id="average">—</strong></div>
+          <div><span>Models selected</span><strong id="model-count">—</strong></div>
         </div>
-        <label id="group-control" hidden>Group by<select class="select" id="grouping">
-            <option value="eras">Model transitions</option>
-            <option value="weeks">7-day intervals</option>
-            <option value="months">Calendar months</option>
-          </select></label>
-      </div>
-      <div class="chart-summary">
-        <div>
-          <strong id="total">—</strong><span id="metric-caption">Requests / calls</span>
+        <div class="section-title">
+          <h2>Models</h2>
+          <button class="btn" data-variant="ghost" id="all-models">Deselect all</button>
         </div>
-        <div><strong id="average">—</strong><span>Daily average</span></div>
-        <div>
-          <strong id="model-count">—</strong><span>Models selected</span>
+        <div id="models" class="model-list"></div>
+      </aside>
+      <section class="visual-panel" aria-label="Usage visualization">
+        <div class="visual-top">
+          <div class="tabs" aria-label="Visualization">
+            <button class="toggle" data-view="daily" aria-pressed="true">
+              Daily timeline</button><button class="toggle" data-view="bubbles" aria-pressed="false">
+              Model chapters</button><button class="toggle" data-view="race" aria-pressed="false">
+              Ranking race
+            </button>
+          </div>
+          <label id="group-control" hidden>Group by<select class="select" id="grouping">
+              <option value="eras">Model transitions</option>
+              <option value="weeks">7-day intervals</option>
+              <option value="months">Calendar months</option>
+            </select></label>
+          <div id="race-options" class="race-options" hidden>
+            <label><span class="sr-only">Ranking</span><select id="race-mode" class="select">
+                <option value="week">Last 7 days</option>
+                <option value="month">Last 30 days</option>
+                <option value="cumulative">Cumulative usage</option>
+              </select></label>
+          </div>
         </div>
-      </div>
-      <div id="daily-view">
-        <div id="chart-wrap">
-          <svg id="chart" role="img" aria-label="Daily usage stacked by model"></svg>
-          <div id="tooltip" hidden></div>
+        <div id="daily-view">
+          <div id="chart-wrap">
+            <svg id="chart" role="img" aria-label="Daily usage stacked by model"></svg>
+            <div id="tooltip" hidden></div>
+          </div>
+          <p id="chart-empty" hidden></p>
         </div>
-        <p id="chart-empty" hidden></p>
-      </div>
-      <div id="bubble-view" hidden>
-        <div id="chapters" class="chapters"></div>
-      </div>
-    </section>
-    <section class="model-panel">
-      <div class="section-title">
-        <h2>Models</h2>
-        <button class="btn" data-variant="outline" id="all-models">
-          Deselect all
-        </button>
-      </div>
-      <div id="models" class="model-list"></div>
-    </section>
+        <div id="bubble-view" hidden>
+          <div id="chapters" class="chapters"></div>
+        </div>
+        <div id="race-view" hidden>
+          <div class="race-heading">
+            <time id="race-date"></time>
+          </div>
+          <div class="race-playback">
+            <label><span class="sr-only">Playback speed</span><select id="race-speed" class="select">
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select></label>
+            <button id="race-play" class="btn" aria-label="Play rankings">Play</button>
+            <button id="race-restart" class="btn" data-variant="outline">Restart</button>
+            <div class="race-scrubber">
+              <input id="race-slider" class="slider" type="range" min="0" max="0" step="any" value="0"
+                aria-label="Replay date" />
+            </div>
+            <span id="race-progress"></span>
+          </div>
+          <div id="race-axis" class="race-axis race-columns" aria-hidden="true">
+            <span id="race-unit"></span>
+            <div class="race-scale"></div>
+          </div>
+          <div id="race-board" class="race-board" role="list" aria-label="Model rankings"></div>
+          <p id="race-empty" hidden>No recorded usage in this window.</p>
+        </div>
+      </section>
+    </div>
     <section id="sources-panel" class="model-panel" aria-label="Provider connections" hidden>
       <div class="section-title">
         <h2>History &amp; account limits</h2>

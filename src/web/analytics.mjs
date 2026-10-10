@@ -24,6 +24,17 @@ export const addDays = (d, n) =>
   new Date(Date.parse(d + "T00:00:00Z") + n * 86400000)
     .toISOString()
     .slice(0, 10);
+export function calendarDate(timeZone, date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date).map(({ type, value }) => [type, value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
 export const daysBetween = (a, b) =>
   Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1;
 export const percentage = (n, total) =>
@@ -32,13 +43,26 @@ export const percentage = (n, total) =>
     : (n / total) * 100 < 0.1
       ? "<0.1%"
       : ((n / total) * 100).toFixed(1) + "%";
-export const compact = (n) =>
-  new Intl.NumberFormat("en", {
-    notation: "compact",
-    maximumFractionDigits: 2,
-  }).format(n);
-export const exact = (n) =>
-  new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(n);
+const compactFormatter = new Intl.NumberFormat("en", {notation: "compact", maximumFractionDigits: 2});
+const exactFormatter = new Intl.NumberFormat("en", {maximumFractionDigits: 1});
+export const compact = (n) => compactFormatter.format(n);
+export const exact = (n) => exactFormatter.format(n);
+const countFormatter = new Intl.NumberFormat("en", {maximumFractionDigits: 2});
+export function formatMetric(value, metric) {
+  if (["requests", "rounds"].includes(metric)) return countFormatter.format(value);
+  for (const [size, unit] of [[1e9, "B"], [1e6, "M"], [1e3, "K"]])
+    if (Math.abs(value) >= size) return (value / size).toFixed(2) + unit;
+  return countFormatter.format(value);
+}
+export const formatAverage = (value, metric) => metric === "requests" ? exact(value) : formatMetric(value, metric);
+export function rankingAxis(value) {
+  const largest = Math.max(1, value),
+    unit = 10 ** Math.floor(Math.log10(largest / 5)),
+    step = Math.max(1, [1, 2, 5, 10].find(size => size * unit >= largest / 5) * unit),
+    intervals = Math.ceil(largest / step),
+    maximum = intervals * step;
+  return {maximum, ticks: Array.from({length: intervals + 1}, (_, index) => index * step)};
+}
 export function modelId(name) {
   return name
     .replace(/^copilot\//, "")
@@ -76,13 +100,13 @@ export function modelColor(name) {
       ).replace("-", "."),
     );
   let hue = 220,
-    strength = 55;
+    lightness = 55;
   if (n.includes("opus")) {
     hue = 275;
-    strength = v >= 5.5 ? 67 : v >= 5 ? 59 : v >= 4.8 ? 51 : 44;
+    lightness = v >= 5.5 ? 36 : v >= 5 ? 48 : v >= 4.8 ? 60 : 72;
   } else if (n.includes("sonnet")) {
     hue = 26;
-    strength = v >= 5.5 ? 64 : v >= 5 ? 58 : v >= 4.5 ? 50 : 43;
+    lightness = v >= 5.5 ? 36 : v >= 5 ? 48 : v >= 4.5 ? 60 : 72;
   } else if (n.includes("gpt")) {
     hue = n.includes("terra")
       ? 45
@@ -91,26 +115,26 @@ export function modelColor(name) {
         : n.includes("astra")
           ? 355
           : 215;
-    strength =
+    lightness =
       v >= 6.1
-        ? 63
+        ? 35
         : v >= 6
-          ? 57
+          ? 43
           : v >= 5.6
             ? 51
             : v >= 5.5
-              ? 47
+              ? 59
               : v >= 5.4
-                ? 43
-                : 38;
+                ? 67
+                : 75;
   } else if (n.includes("gemini")) {
     hue = 180;
-    strength = v >= 3.8 ? 62 : v >= 3.7 ? 55 : v >= 3.1 ? 49 : 43;
+    lightness = v >= 3.8 ? 36 : v >= 3.7 ? 48 : v >= 3.1 ? 60 : 72;
   } else if (n.includes("fable")) hue = 325;
   else {
     hue = [...n].reduce((s, c) => s * 31 + c.charCodeAt(0), 0) % 360;
   }
-  return `hsl(${Math.abs(hue)} 70% ${strength}%)`;
+  return `hsl(${Math.abs(hue)} 70% ${lightness}%)`;
 }
 export function normalize(data) {
   const rows = data.rows.map((r) => ({
@@ -182,6 +206,38 @@ export function aggregate(rows, metric) {
   return [...map.values()].sort(
     (a, b) => b.value - a.value || a.model.localeCompare(b.model),
   );
+}
+export function rankingFrames(rows, start, end, metric, mode = "week") {
+  const windowDays = mode === "month" ? 30 : 7;
+  const historyStart = mode === "cumulative" ? start : addDays(start, 1 - windowDays);
+  const byDay = new Map();
+  for (const row of rows) {
+    if (row.date < historyStart || row.date > end) continue;
+    if (!byDay.has(row.date)) byDay.set(row.date, new Map());
+    const values = byDay.get(row.date);
+    values.set(row.model, (values.get(row.model) || 0) + (row[metric] || 0));
+  }
+  const frames = [];
+  const values = new Map();
+  for (const [date, history] of byDay)
+    if (date < start)
+      for (const [model, value] of history)
+        values.set(model, (values.get(model) || 0) + value);
+  for (let date = start; date <= end; date = addDays(date, 1)) {
+    for (const [model, value] of byDay.get(date) || [])
+      values.set(model, (values.get(model) || 0) + value);
+    if (mode !== "cumulative")
+      for (const [model, value] of byDay.get(addDays(date, -windowDays)) || []) {
+        const remaining = (values.get(model) || 0) - value;
+        if (remaining > 0) values.set(model, remaining);
+        else values.delete(model);
+      }
+    const ranking = [...values].filter(([, value]) => value > 0)
+      .map(([model, value]) => ({model, value}))
+      .sort((a, b) => b.value - a.value || a.model.localeCompare(b.model));
+    frames.push({date, ranking});
+  }
+  return frames;
 }
 export function periods(rows, start, end, mode = "eras") {
   let cuts = [start];

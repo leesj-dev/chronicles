@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 import os
 import threading
@@ -101,10 +102,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(500, 'Usage scan failed')
                 return
             mime = 'application/json'
-        elif path in ('/', '/index.html', '/app.js', '/combobox.js', '/analytics.mjs', '/style.css', '/shadcn.css', '/favicon.svg'):
+        elif path in ('/', '/index.html', '/app.js', '/combobox.js', '/calendar.js', '/analytics.mjs', '/style.css', '/shadcn.css', '/favicon.svg', '/Geist.woff2'):
             filename = 'index.html' if path == '/' else path[1:]
             content = (SRC / 'web' / filename).read_bytes()
-            mime = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'mjs':'text/javascript', 'svg':'image/svg+xml'}[filename.rsplit('.', 1)[-1]]
+            mime = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'mjs':'text/javascript', 'svg':'image/svg+xml', 'woff2':'font/woff2'}[filename.rsplit('.', 1)[-1]]
         else:
             self.send_error(404)
             return
@@ -129,10 +130,14 @@ if __name__ == '__main__':
         report = json.loads((ROOT/'examples'/'demo.json').read_text()) if DEMO else collector.collect()
         page = (SRC/'web'/'index.html').read_text()
         styles = (SRC/'web'/'style.css').read_text()
+        font = base64.b64encode((SRC/'web'/'Geist.woff2').read_bytes()).decode('ascii')
+        styles = styles.replace('/Geist.woff2', 'data:font/woff2;base64,'+font)
         shadcn = (SRC/'web'/'shadcn.css').read_text()
         page = re.sub(r'<link\s+rel="stylesheet"\s+href="/shadcn.css"\s*/?>', lambda _: '<style>'+shadcn+'</style>', page)
         combobox = (SRC/'web'/'combobox.js').read_text()
         page = page.replace('<script src="/combobox.js"></script>', '<script>'+combobox+'</script>')
+        calendar = (SRC/'web'/'calendar.js').read_text()
+        page = page.replace('<script src="/calendar.js"></script>', '<script>'+calendar+'</script>')
         analytics = (SRC/'web'/'analytics.mjs').read_text().replace('export ', '')
         app = re.sub(r'^import .*?;\n', '', (SRC/'web'/'app.js').read_text(), count=1, flags=re.S)
         payload = json.dumps(report).replace('<', '\\u003c')

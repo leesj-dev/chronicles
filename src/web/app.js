@@ -3,9 +3,13 @@ import {
   historyHarnesses,
   METRICS,
   addDays,
+  calendarDate,
+  rankingFrames,
+  rankingAxis,
+  formatMetric,
+  formatAverage,
   daysBetween,
   percentage,
-  compact,
   exact,
   modelName,
   modelColor,
@@ -38,12 +42,12 @@ let data,
   days = [],
   allModels = [],
   activeRows = [],
-  view = saved.view || "daily",
+  view = ["daily", "bubbles", "race"].includes(saved.view) ? saved.view : "daily",
   metric = Object.hasOwn(METRICS, saved.metric) ? saved.metric : "requests",
   grouping = saved.grouping || "eras",
   device = saved.device || "all",
   start = saved.start,
-  end = saved.end;
+  end;
 let harnesses = new Set(saved.harnesses || Object.keys(HARNESSES)),
   models = new Set(saved.models || []),
   isDemo = false,
@@ -58,7 +62,6 @@ function persist() {
         grouping,
         device,
         start,
-        end,
         harnesses: [...harnesses],
         models: [...models],
         excludeReview: $("exclude-review").checked,
@@ -72,7 +75,7 @@ function swatch(name) {
   return s;
 }
 // Build the documented shadcn-html structure and connect its value to chart state.
-function customSelect(id, label, choices) {
+function customSelect(id, label, choices, hideLabel = false) {
   const original = $(id),
     field = original.closest("label"),
     fieldWrapper = el("div", "select-field"),
@@ -86,11 +89,12 @@ function customSelect(id, label, choices) {
   if (field.id) fieldWrapper.id = field.id;
   fieldWrapper.hidden = field.hidden;
   labelEl.id = id + "-label";
+  if (hideLabel) labelEl.classList.add("sr-only");
   trigger.id = id;
   trigger.type = "button";
   trigger.dataset.variant = "outline";
   trigger.dataset.size = "sm";
-  wrapper.style.width = "14rem";
+  wrapper.style.width = {metric: "13.25rem", device: "8.4rem"}[id] || "14rem";
   valueLabel.id = id + "-value";
   trigger.setAttribute("aria-labelledby", labelEl.id + " " + valueLabel.id);
   trigger.setAttribute("aria-haspopup", "listbox");
@@ -125,7 +129,7 @@ function customSelect(id, label, choices) {
   fieldWrapper.append(labelEl, wrapper);
   field.replaceWith(fieldWrapper);
   const component = window.ChroniclesCombobox.init(wrapper);
-  let selected = choices[0][0];
+  let selected = choices.some(([value]) => value === original.value) ? original.value : choices[0][0];
   Object.defineProperty(trigger, "value", {
     get: () => selected,
     set: (value) => {
@@ -139,15 +143,91 @@ function customSelect(id, label, choices) {
     trigger.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
+function calendarDatePicker(id, label) {
+  const original = $(id), field = original.closest("label"),
+    wrapper = el("div", "date-field"), labelEl = el("span", "field-label", label),
+    trigger = el("button", "btn date-trigger"), valueEl = el("span"),
+    popup = el("div", "date-popover"), cal = el("div", "calendar");
+  labelEl.id = id + "-label";
+  trigger.id = id;
+  trigger.type = "button";
+  trigger.disabled = true;
+  trigger.dataset.variant = "outline";
+  trigger.setAttribute("aria-labelledby", labelEl.id + " " + id + "-value");
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-expanded", "false");
+  popup.id = id + "-popup";
+  popup.setAttribute("popover", "auto");
+  popup.setAttribute("role", "dialog");
+  popup.setAttribute("aria-label", label + " date");
+  trigger.setAttribute("aria-controls", popup.id);
+  trigger.setAttribute("popovertarget", popup.id);
+  trigger.setAttribute("popovertargetaction", "toggle");
+  valueEl.id = id + "-value";
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("width", "16");
+  icon.setAttribute("height", "16");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("fill", "none");
+  icon.setAttribute("stroke", "currentColor");
+  icon.setAttribute("stroke-width", "1.8");
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>';
+  cal.innerHTML = '<div class="calendar-header"><button type="button" class="calendar-nav" data-action="prev-month" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button><span class="calendar-heading" aria-live="polite"></span><button type="button" class="calendar-nav" data-action="next-month" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div><table class="calendar-grid" role="grid"></table>';
+  trigger.append(valueEl, icon);
+  popup.append(cal);
+  wrapper.append(labelEl, trigger, popup);
+  field.replaceWith(wrapper);
+  trigger.calendar = window.ChroniclesCalendar.init(cal);
+  let selected = original.value;
+  Object.defineProperty(trigger, "value", {
+    get: () => selected,
+    set: value => { selected = value; valueEl.textContent = value || "Choose date"; },
+  });
+  trigger.value = selected;
+  const position = () => {
+    if (!popup.matches(":popover-open")) return;
+    const box = trigger.getBoundingClientRect(), size = popup.getBoundingClientRect();
+    popup.style.left = Math.max(8, Math.min(box.left, innerWidth - size.width - 8)) + "px";
+    popup.style.top = Math.max(8, Math.min(box.bottom + 6, innerHeight - size.height - 8)) + "px";
+  };
+  popup.addEventListener("toggle", () => {
+    const open = popup.matches(":popover-open");
+    trigger.setAttribute("aria-expanded", String(open));
+    if (open) { trigger.calendar.open(); position(); }
+  });
+  cal.addEventListener("calendar:select", event => {
+    trigger.value = event.detail.value;
+    popup.hidePopover();
+    trigger.focus({preventScroll: true});
+    trigger.dispatchEvent(new Event("change", {bubbles: true}));
+  });
+  popup.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    popup.hidePopover();
+    trigger.focus({preventScroll: true});
+  });
+  popup.addEventListener("focusout", event => {
+    if (event.relatedTarget && !popup.contains(event.relatedTarget)) popup.hidePopover();
+  });
+  window.addEventListener("resize", position);
+  window.addEventListener("scroll", position, true);
+  for (const event of ["click", "keydown"]) cal.addEventListener(event, () => queueMicrotask(position));
+}
+for (const [id, label] of [["start-date", "From"], ["end-date", "To"]]) calendarDatePicker(id, label);
 customSelect("metric", "Metric", Object.entries(METRICS));
 for (const [id, label] of [
   ["device", "Device"],
   ["grouping", "Group by"],
+  ["race-mode", "Ranking"],
+  ["race-speed", "Playback speed"],
 ])
   customSelect(
     id,
     label,
     [...$(id).options].map((option) => [option.value, option.textContent]),
+    ["race-mode", "race-speed"].includes(id),
   );
 $("exclude-review").checked = saved.excludeReview !== false;
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");
@@ -190,6 +270,12 @@ function controls() {
       input.min = days[0];
       input.max = days.at(-1);
       input.value = which === "start" ? start : end;
+      input.calendar.setOptions({
+        selected: input.value,
+        min: which === "start" ? days[0] : start,
+        max: which === "start" ? end : days.at(-1),
+        today: calendarDate(data.timezone || "UTC"),
+      });
       const slider = $(which + "-slider");
       slider.max = days.length - 1;
       slider.value = daysBetween(days[0], input.value) - 1;
@@ -210,9 +296,12 @@ function controls() {
     );
   $("daily-view").hidden = view !== "daily";
   $("bubble-view").hidden = view !== "bubbles";
+  $("race-view").hidden = view !== "race";
+  $("race-options").hidden = view !== "race";
   $("group-control").hidden = view !== "bubbles";
 }
 function render() {
+  pauseRace();
   const focused = document.activeElement;
   const focusKey = focused?.dataset.focusKey;
   const keyboardFocus = focused?.matches(":focus-visible");
@@ -236,9 +325,9 @@ function render() {
   const summary = summarize(activeRows, metric, start, end),
     isCount = ["requests", "rounds"].includes(metric),
     noTokens = !isCount && summary.missing > 0 && summary.total === 0;
-  $("total").textContent = noTokens ? "Not recorded" : compact(summary.total);
+  $("total").textContent = noTokens ? "Not recorded" : formatMetric(summary.total, metric);
   $("total").title = exact(summary.total);
-  $("average").textContent = noTokens ? "—" : compact(summary.average);
+  $("average").textContent = noTokens ? "—" : formatAverage(summary.average, metric);
   $("metric-caption").textContent = METRICS[metric];
   $("model-count").textContent = summary.models.length;
   const notes = [];
@@ -262,7 +351,24 @@ function render() {
   $("chart-empty").textContent = noTokens
     ? "Token values were not recorded for these requests. Switch to Requests / calls."
     : "No usage matches these filters. Select a harness or model, or widen the date range.";
-  const mini = Array(days.length).fill(0);
+  drawMini();
+  renderModels();
+  if (view === "daily") drawDaily();
+  else if (view === "bubbles") drawBubbles();
+  else drawRace();
+  if (focusKey && keyboardFocus) {
+    for (const button of document.querySelectorAll("[data-focus-key]"))
+      if (button.dataset.focusKey === focusKey) {
+        button.focus({ preventScroll: true });
+        break;
+      }
+  }
+}
+function drawMini() {
+  const chart = $("mini-chart");
+  // Reserve two pixels per bar plus its gap, combining days on narrow screens.
+  const count = Math.max(1, Math.min(days.length, Math.floor((chart.clientWidth + 1) / 3))),
+    mini = Array(count).fill(0);
   for (const r of filterRows(rows, {
     start: days[0],
     end: days.at(-1),
@@ -272,25 +378,15 @@ function render() {
     excludeReview: $("exclude-review").checked,
   }))
     if (metric !== "rounds" || r.provider === "copilot")
-      mini[daysBetween(days[0], r.date) - 1] += r[metric] || 0;
+      mini[Math.floor((daysBetween(days[0], r.date) - 1) * count / days.length)] += r[metric] || 0;
   const max = Math.max(1, ...mini);
-  $("mini-chart").replaceChildren(
+  chart.replaceChildren(
     ...mini.map((v) => {
       const n = el("div", "mini-bar");
       n.style.height = (v / max) * 100 + "%";
       return n;
     }),
   );
-  renderModels();
-  if (view === "daily") drawDaily();
-  else drawBubbles();
-  if (focusKey && keyboardFocus) {
-    for (const button of document.querySelectorAll("[data-focus-key]"))
-      if (button.dataset.focusKey === focusKey) {
-        button.focus({ preventScroll: true });
-        break;
-      }
-  }
 }
 function renderModels() {
   const available = filterRows(rows, {
@@ -304,21 +400,26 @@ function renderModels() {
     totals = new Map(aggregate(available, metric).map((r) => [r.model, r]));
   const existing = new Map([...$("models").children].map(group => [group.querySelector("button").dataset.focusKey.slice(6), group]));
   for (const [name, group] of existing) if (!allModels.includes(name)) group.remove();
-  for (const name of allModels) {
+  const rankedModels = [...allModels].sort((a, b) =>
+    (totals.get(b)?.value || 0) - (totals.get(a)?.value || 0) || a.localeCompare(b),
+  );
+  for (const name of rankedModels) {
     const group = existing.get(name) || el("div", "model-group"),
-      button = group.querySelector("button") || el("button", "toggle model-chip");
+      button = group.querySelector("button") || el("button", "btn model-chip");
     if (!existing.has(name)) {
-      button.dataset.variant = "outline";
+      button.dataset.variant = "ghost";
       button.dataset.focusKey = "model:" + name;
-      button.append(swatch(name), document.createTextNode(modelName(name)));
+      button.append(swatch(name), el("span", "model-name", modelName(name)));
+      button.querySelector(".model-name").title = modelName(name);
       button.append(el("span", "model-value"));
       group.append(button);
-      $("models").append(group);
     }
+    $("models").append(group);
     const a = totals.get(name);
+    group.hidden = !a || (!a.value && !(a.missing && !["requests", "rounds"].includes(metric)));
     button.querySelector(".model-value").textContent = a
           ? a.value
-            ? compact(a.value)
+            ? formatMetric(a.value, metric)
             : a.missing && !["requests", "rounds"].includes(metric)
               ? "Not recorded"
               : "0"
@@ -355,7 +456,7 @@ function drawDaily() {
   $("tooltip").hidden = true;
   const daily = dailyData(),
     w = Math.max(280, chart.clientWidth),
-    left = 58,
+    left = 76,
     top = 16,
     height = 236,
     width = w - left - 16,
@@ -374,7 +475,7 @@ function drawDaily() {
       svgNode(
         "text",
         { x: left - 10, y: y + 4, "text-anchor": "end", class: "axis" },
-        compact((max * i) / 4),
+        formatMetric((max * i) / 4, metric),
       ),
     );
   }
@@ -451,7 +552,7 @@ function showTooltip(date, counts, event) {
       const row = el("div", "tip-row"),
         label = el("span");
       label.append(swatch(model), document.createTextNode(modelName(model)));
-      row.append(label, el("span", "", exact(value)));
+      row.append(label, el("span", "", formatMetric(value, metric)));
       tip.append(row);
     }
   tip.hidden = false;
@@ -501,7 +602,7 @@ function drawBubbles() {
   const rowHeights = Array.from(
     { length: rankCount },
     (_, rank) =>
-      88 +
+      64 +
       Math.max(
         0,
         ...ranks.map((m) =>
@@ -529,12 +630,12 @@ function drawBubbles() {
           : METRICS[metric] + "/day";
     head.append(
       track,
-      el("div", "chapter-average", unknown ? "—" : compact(p.average)),
+      el("div", "chapter-average", unknown ? "—" : formatAverage(p.average, metric)),
       el("div", "chapter-meta", perDay),
       el(
         "div",
         "chapter-meta chapter-total",
-        unknown ? "Not recorded" : compact(p.total) + " total",
+        unknown ? "Not recorded" : formatMetric(p.total, metric) + " total",
       ),
     );
     const harnessCounts = new Map();
@@ -574,7 +675,7 @@ function drawBubbles() {
       model.append(
         el("div", "bubble-name", modelName(m.model)),
         space,
-        el("div", "bubble-value", exact(m.value)),
+        el("div", "bubble-value", formatMetric(m.value, metric)),
         el("div", "bubble-share", percentage(m.value, p.total)),
       );
       column.append(model);
@@ -609,6 +710,174 @@ function drawBubbles() {
     for (const cell of cells) cell.style.height = height + "px";
   }
 }
+let raceFrames = [], raceIndex = 0, racePosition = 0, racePlaying = false;
+let raceRows = new Map();
+let raceAnimation, raceAxisMaximum = 0, racePaintAt = 0;
+const raceStepMs = 1000 / 2;
+function pauseRace() {
+  cancelAnimationFrame(raceAnimation);
+  racePlaying = false;
+  $("race-play").textContent = "Play";
+  $("race-play").setAttribute("aria-label", "Play rankings");
+}
+function paintRace(position) {
+  racePosition = Math.min(position, Math.max(0, raceFrames.length - 1));
+  raceIndex = Math.floor(racePosition);
+  const frame = raceFrames[raceIndex];
+  if (!frame) return;
+  const next = raceFrames[Math.min(raceIndex + 1, raceFrames.length - 1)];
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fraction = reducedMotion ? 0 : racePosition - raceIndex;
+  const now = performance.now(), elapsed = Math.max(0, now - racePaintAt);
+  racePaintAt = now;
+  const widthBlend = racePlaying && !reducedMotion ? 1 - Math.exp(-elapsed / 90) : 1;
+  const move = fraction * fraction * (3 - 2 * fraction);
+  $("race-date").textContent = frame.date;
+  $("race-date").dateTime = frame.date;
+  const sliderPosition = reducedMotion ? raceIndex : racePosition;
+  $("race-slider").value = sliderPosition;
+  $("race-slider").style.setProperty("--slider-value", `${100 * sliderPosition / Math.max(1, raceFrames.length - 1)}%`);
+  $("race-slider").setAttribute("aria-valuetext", frame.date);
+  $("race-progress").textContent = `${raceIndex + 1} / ${raceFrames.length}`;
+  $("race-empty").hidden = frame.ranking.length > 0 || (fraction > 0 && next.ranking.length > 0);
+  const currentHeight = Math.max(1, frame.ranking.length) * 54;
+  const nextHeight = Math.max(1, next.ranking.length) * 54;
+  const height = currentHeight + (nextHeight - currentHeight) * fraction;
+  $("race-board").style.height = height + "px";
+  const maximum = Math.max(1, ...frame.ranking.map(row => row.value));
+  const nextMaximum = Math.max(1, ...next.ranking.map(row => row.value));
+  const axis = rankingAxis(maximum + (nextMaximum - maximum) * fraction);
+  const scaleMaximum = axis.maximum;
+  $("race-unit").textContent = metric === "requests" ? "Requests" : metric === "rounds" ? "Rounds" : "Tokens";
+  if (raceAxisMaximum !== scaleMaximum) {
+    raceAxisMaximum = scaleMaximum;
+    $("race-axis").querySelector(".race-scale").replaceChildren(...axis.ticks.map((value, index) => {
+      const tick = el("span", "race-tick", formatMetric(value, metric));
+      tick.style.left = `${100 * value / scaleMaximum}%`;
+      if (index === Math.floor((axis.ticks.length - 1) / 2)) tick.dataset.midpoint = "";
+      return tick;
+    }));
+    $("race-board").querySelector(".race-grid-lines").replaceChildren(...axis.ticks.map((value, index) => {
+      const line = el("i");
+      line.style.left = `${100 * value / scaleMaximum}%`;
+      if (index === Math.floor((axis.ticks.length - 1) / 2)) line.dataset.midpoint = "";
+      return line;
+    }));
+  }
+  const current = new Map(frame.ranking.map((row, index) => [row.model, {...row, rank: index}]));
+  const upcoming = new Map(next.ranking.map((row, index) => [row.model, {...row, rank: index}]));
+  const primary = fraction < 0.5 ? current : upcoming;
+  for (const [name, row] of raceRows) {
+    const from = current.get(name), to = upcoming.get(name);
+    const fromY = from ? from.rank * 54 : currentHeight + 10;
+    const toY = to ? to.rank * 54 : nextHeight + 10;
+    const value = (from?.value || 0) + ((to?.value || 0) - (from?.value || 0)) * fraction;
+    const width = 100 * value / scaleMaximum;
+    row.style.transform = `translateY(${fromY + (toY - fromY) * move}px)`;
+    row.style.opacity = from && to ? "1" : from ? 1 - fraction : to ? fraction : "0";
+    const ranked = primary.get(name);
+    row.setAttribute("aria-hidden", String(!ranked));
+    const bar = row.querySelector(".race-bar");
+    if (!from && !to) { bar.style.width = "0%"; continue; }
+    row.querySelector(".race-rank").textContent = (ranked?.rank ?? from?.rank ?? to.rank) + 1;
+    const counter = row.querySelector(".race-value");
+    counter.dataset.value = value;
+    counter.textContent = formatMetric(Math.round(value), metric);
+    counter.title = exact(value);
+    const previousWidth = parseFloat(bar.style.width) || 0;
+    bar.style.width = `${previousWidth + (width - previousWidth) * widthBlend}%`;
+    if (ranked) {
+      row.setAttribute("aria-posinset", ranked.rank + 1);
+      row.setAttribute("aria-setsize", primary.size);
+      row.setAttribute("aria-label", `${ranked.rank + 1}. ${modelName(name)}: ${exact(value)} ${METRICS[metric]}`);
+    }
+  }
+}
+function showRaceFrame() {
+  paintRace(raceIndex);
+  for (const item of raceFrames[raceIndex]?.ranking || []) $("race-board").append(raceRows.get(item.model));
+}
+function drawRace() {
+  cancelAnimationFrame(raceAnimation);
+  const mode = $("race-mode").value;
+  let raceHistory = mode === "cumulative" ? activeRows : filterRows(rows, {
+    start: addDays(start, mode === "month" ? -29 : -6),
+    end,
+    harnesses,
+    models,
+    device,
+    excludeReview: $("exclude-review").checked,
+  });
+  if (metric === "rounds") raceHistory = raceHistory.filter(row => row.provider === "copilot");
+  raceFrames = rankingFrames(raceHistory, start, end, metric, mode);
+  raceIndex = 0;
+  raceRows = new Map();
+  raceAxisMaximum = 0;
+  $("race-board").replaceChildren();
+  const grid = el("div", "race-grid race-columns"), lines = el("div", "race-grid-lines");
+  grid.setAttribute("aria-hidden", "true");
+  grid.append(lines);
+  $("race-board").append(grid);
+  const names = new Set(raceFrames.flatMap(frame => frame.ranking.map(row => row.model)));
+  for (const name of names) {
+    const row = el("div", "race-row");
+    row.setAttribute("role", "listitem");
+    row.style.opacity = "0";
+    const track = el("div", "race-track"), bar = el("div", "race-bar");
+    bar.style.background = modelColor(name);
+    track.append(bar);
+    row.append(el("span", "race-rank"), el("span", "race-name", modelName(name)), track, el("span", "race-value"));
+    raceRows.set(name, row);
+    $("race-board").append(row);
+  }
+  $("race-slider").max = Math.max(0, raceFrames.length - 1);
+  $("race-slider").disabled = !raceFrames.length;
+  $("race-play").disabled = raceFrames.length < 2 || !names.size;
+  $("race-restart").disabled = !raceFrames.length;
+  showRaceFrame();
+}
+function scheduleRace() {
+  racePaintAt = performance.now();
+  const stepMs = raceStepMs / Number($("race-speed").value);
+  const started = performance.now() - racePosition * stepMs;
+  const advance = now => {
+    if (!racePlaying || view !== "race") return;
+    paintRace((now - started) / stepMs);
+    if (racePosition >= raceFrames.length - 1) { pauseRace(); showRaceFrame(); }
+    else raceAnimation = requestAnimationFrame(advance);
+  };
+  raceAnimation = requestAnimationFrame(advance);
+}
+$("race-play").onclick = () => {
+  if (racePlaying) return pauseRace();
+  if (racePosition >= raceFrames.length - 1) {
+    raceIndex = 0;
+    showRaceFrame();
+  }
+  racePlaying = true;
+  $("race-play").textContent = "Pause";
+  $("race-play").setAttribute("aria-label", "Pause rankings");
+  scheduleRace();
+};
+$("race-restart").onclick = () => { pauseRace(); raceIndex = 0; showRaceFrame(); };
+$("race-slider").oninput = event => { pauseRace(); raceIndex = Number(event.target.value); showRaceFrame(); };
+$("race-slider").onkeydown = event => {
+  if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+  event.preventDefault();
+  pauseRace();
+  const forward = ["ArrowRight", "ArrowUp"].includes(event.key);
+  raceIndex = Math.max(0, Math.min(raceFrames.length - 1,
+    forward ? Math.floor(racePosition) + 1 : Math.ceil(racePosition) - 1));
+  showRaceFrame();
+};
+$("race-mode").onchange = () => { pauseRace(); drawRace(); };
+$("race-speed").onchange = () => {
+  if (!racePlaying) return;
+  cancelAnimationFrame(raceAnimation);
+  scheduleRace();
+};
+document.addEventListener("visibilitychange", () => { if (document.hidden) pauseRace(); });
+
 function renderSources() {
   $("sources-panel").hidden = true;
   $("sources").replaceChildren();
@@ -711,8 +980,9 @@ async function load(endpoint = "/api/usage", reset = false) {
   const request = ++latestLoad;
   $("refresh").disabled = true;
   $("status").textContent = "Reading usage records…";
+  $("status").hidden = false;
   try {
-    const result =
+    let result =
       window.CHRONICLES_DATA ||
       (await fetch(endpoint).then((r) => {
         if (!r.ok)
@@ -720,11 +990,21 @@ async function load(endpoint = "/api/usage", reset = false) {
         return r.json();
       }));
     if (request !== latestLoad) return;
+    let previewFallback = false;
+    if (!window.CHRONICLES_DATA && !result.demo && !normalize(result).length) {
+      const response = await fetch("/api/demo");
+      if (!response.ok) throw Error("No local usage records found. Preview demo could not load.");
+      result = await response.json();
+      previewFallback = true;
+      if (request !== latestLoad) return;
+    }
+    if (isDemo !== !!result.demo) reset = true;
     if (reset) {
       start = end = undefined;
       models = new Set();
       initialized = false;
       saved.models = undefined;
+      if (result.demo) harnesses = new Set(Object.keys(HARNESSES));
     }
     const knownModels = new Set(allModels);
     data = result;
@@ -739,10 +1019,20 @@ async function load(endpoint = "/api/usage", reset = false) {
     } else
       for (const name of allModels)
         if (!knownModels.has(name)) models.add(name);
+    const followLatest = !end || end === days.at(-1);
+    const lastDate = !isDemo && !window.CHRONICLES_DATA
+      ? [dates.at(-1), calendarDate(data.timezone || "UTC")].filter(Boolean).sort().at(-1)
+      : dates.at(-1);
     days = [];
     if (dates.length)
-      for (let d = dates[0]; d <= dates.at(-1); d = addDays(d, 1)) days.push(d);
+      for (let d = dates[0]; d <= lastDate; d = addDays(d, 1)) days.push(d);
     if (!days.length) {
+      pauseRace();
+      raceFrames = [];
+      cancelAnimationFrame(raceAnimation);
+      raceRows.clear();
+      $("race-board").replaceChildren();
+      $("race-view").hidden = true;
       controls();
       $("daily-view").hidden = false;
       $("bubble-view").hidden = true;
@@ -755,25 +1045,18 @@ async function load(endpoint = "/api/usage", reset = false) {
       $("notice").hidden = true;
       $("chart-empty").hidden = false;
       $("chart-empty").textContent =
-        "No records found. Try the demo or use a supported harness.";
+        "No usage records found. Use a supported harness and refresh.";
       $("status").textContent =
-        "No saved records found. Try demo, or use a supported coding harness and refresh.";
-      $("source-label").textContent = "No local records";
-      $("demo").textContent = "Preview demo";
+        "No local usage records found.";
       return;
     }
     start = start && start >= days[0] && start <= days.at(-1) ? start : days[0];
-    end = end && end >= start && end <= days.at(-1) ? end : days.at(-1);
+    end = !followLatest && end >= start && end <= days.at(-1) ? end : days.at(-1);
     render();
-    $("source-label").textContent = isDemo
-      ? "Synthetic demo data"
-      : window.CHRONICLES_DATA
-        ? "Exported snapshot"
-        : "Local usage records";
-    $("demo").textContent = isDemo ? "Back to local history" : "Preview demo";
     $("status").textContent = isDemo
-      ? "Demo uses fictional records."
-      : `${exact(data.files || 0)} source files · ${exact(data.events || 0)} token records${data.errors?.length ? " · Partial scan: " + data.errors.join(", ") : ""}`;
+      ? previewFallback ? "No local usage records found. This is a preview demo with fictional data." : "This is a preview demo with fictional data."
+      : data.errors?.length ? "Partial scan: " + data.errors.join(", ") : "";
+    $("status").hidden = !$("status").textContent;
     $("updated").textContent =
       "Updated " +
       new Date(data.updatedAt).toLocaleString("en", {
@@ -782,7 +1065,7 @@ async function load(endpoint = "/api/usage", reset = false) {
       " · " +
       (data.timezone || "UTC");
   } catch (error) {
-    if (request === latestLoad) $("status").textContent = error.message;
+    if (request === latestLoad) { $("status").textContent = error.message; $("status").hidden = false; }
   } finally {
     if (request === latestLoad) $("refresh").disabled = false;
   }
@@ -894,8 +1177,7 @@ document.querySelectorAll("[data-days]").forEach(
       render();
     }),
 );
-$("refresh").onclick = () => load(isDemo ? "/api/demo" : "/api/usage");
-$("demo").onclick = () => load(isDemo ? "/api/local" : "/api/demo", true);
+$("refresh").onclick = () => load();
 $("export").onclick = () => {
   const fields = [
     "date",
@@ -942,16 +1224,18 @@ $("export").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 if (window.CHRONICLES_DATA) {
-  $("demo").hidden = true;
   $("refresh").setAttribute("aria-label", "Reload snapshot");
 }
 let resizeTimer;
-new ResizeObserver(() => {
+const chartResizeObserver = new ResizeObserver(() => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
+    if (days.length) drawMini();
     if (rows.length && view === "daily") drawDaily();
   }, 100);
-}).observe($("chart-wrap"));
+});
+chartResizeObserver.observe($("chart-wrap"));
+chartResizeObserver.observe($("mini-chart"));
 load();
 
 let chapterResizeTimer;
