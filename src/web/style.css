@@ -1079,7 +1079,7 @@ header {
   border-radius: 8px;
   box-shadow: none;
 }
-.model-chip.btn[aria-pressed="false"] { opacity: 0.65; }
+.model-chip.btn[aria-pressed="false"] { opacity: 0.45; }
 .model-chip.btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); }
 .model-chip .swatch { flex-shrink: 0; margin: 0; }
 .model-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }

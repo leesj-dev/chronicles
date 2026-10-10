@@ -8,6 +8,7 @@ import {
   percentage,
   modelColor,
   modelId,
+  modelName,
   periods,
   summarize,
   calendarDate,
@@ -154,6 +155,28 @@ test("same model merges across harnesses and colors stay stable", () => {
   assert.notEqual(modelColor("gpt-5.6-sol"), modelColor("gpt-5.6-terra"));
   assert.equal(modelId("github.copilot-chat/gpt-5.4"), "gpt-5.4");
   assert.equal(modelId("claude-opus-4-6"), modelId("copilot/claude-opus-4.6"));
+});
+test("Haiku naming variants merge and earlier generations have distinct lightness", () => {
+  for (const [legacy, canonical] of [
+    ["claude-3-haiku-20240307", "claude-haiku-3-20240307"],
+    ["claude-3-5-haiku-20241022", "claude-haiku-3.5-20241022"],
+    ["copilot/claude-haiku-4-5", "claude-haiku-4.5"],
+  ]) {
+    assert.equal(modelId(legacy), canonical);
+    assert.equal(modelColor(legacy), modelColor(canonical));
+  }
+  assert.equal(modelName("claude-haiku-5-5"), "Haiku 5.5");
+  assert.equal(modelName("claude-3-5-haiku"), "Haiku 3.5");
+  const levels = [3, 3.5, 4.5, 5, 5.5].map(version =>
+    Number(modelColor(`claude-haiku-${version}`).match(/ ([\d.]+)%\)$/)[1]));
+  assert.ok(levels.every((value, index) => index === 0 || value < levels[index - 1]));
+});
+test("GPT variants and Gemini tiers use capitalized display names", () => {
+  for (const variant of ["Astra", "Sol", "Terra", "Luna"])
+    assert.equal(modelName(`gpt-6-${variant.toLowerCase()}`), `GPT-6 ${variant}`);
+  assert.equal(modelName("gemini-3.7-flash"), "Gemini 3.7 Flash");
+  assert.equal(modelName("copilot/gemini-3.1-pro-preview"), "Gemini 3.1 Pro preview");
+  assert.equal(modelName("Gemini Pro"), "Gemini Pro");
 });
 test("harness deselection and device filters change the actual aggregate", () => {
   const rows = normalize(fixture),

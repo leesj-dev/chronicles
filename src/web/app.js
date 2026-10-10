@@ -797,7 +797,7 @@ function showRaceFrame() {
   paintRace(raceIndex);
   for (const item of raceFrames[raceIndex]?.ranking || []) $("race-board").append(raceRows.get(item.model));
 }
-function drawRace() {
+function drawRace(position = 0) {
   cancelAnimationFrame(raceAnimation);
   const mode = $("race-mode").value;
   let raceHistory = mode === "cumulative" ? activeRows : filterRows(rows, {
@@ -810,7 +810,7 @@ function drawRace() {
   });
   if (metric === "rounds") raceHistory = raceHistory.filter(row => row.provider === "copilot");
   raceFrames = rankingFrames(raceHistory, start, end, metric, mode);
-  raceIndex = 0;
+  raceIndex = Math.floor(Math.min(position, Math.max(0, raceFrames.length - 1)));
   raceRows = new Map();
   raceAxisMaximum = 0;
   $("race-board").replaceChildren();
@@ -835,6 +835,7 @@ function drawRace() {
   $("race-play").disabled = raceFrames.length < 2 || !names.size;
   $("race-restart").disabled = !raceFrames.length;
   showRaceFrame();
+  if (position !== raceIndex) paintRace(position);
 }
 function scheduleRace() {
   racePaintAt = performance.now();
@@ -870,7 +871,7 @@ $("race-slider").onkeydown = event => {
     forward ? Math.floor(racePosition) + 1 : Math.ceil(racePosition) - 1));
   showRaceFrame();
 };
-$("race-mode").onchange = () => { pauseRace(); drawRace(); };
+$("race-mode").onchange = () => { pauseRace(); drawRace(racePosition); };
 $("race-speed").onchange = () => {
   if (!racePlaying) return;
   cancelAnimationFrame(raceAnimation);

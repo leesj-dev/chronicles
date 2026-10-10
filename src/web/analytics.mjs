@@ -68,6 +68,8 @@ export function modelId(name) {
     .replace(/^copilot\//, "")
     .replace(/^github\.copilot-chat\//, "")
     .toLowerCase()
+    .replace(/^claude-(\d+)(?:[.-](\d+))?-haiku(?=$|-)/,
+      (_, major, minor) => `claude-haiku-${major}${minor ? "." + minor : ""}`)
     .replace(
       /(claude-(?:opus|sonnet|haiku|fable)-\d+)-(\d{1,2})(?=$|-)/,
       "$1.$2",
@@ -79,10 +81,12 @@ export function modelName(name) {
     return n
       .replace("gpt-", "GPT-")
       .replaceAll("-", " ")
-      .replace("GPT ", "GPT-");
-  if (n.startsWith("gemini-"))
-    return n.replace("gemini-", "Gemini ").replaceAll("-", " ");
-  for (const family of ["opus", "sonnet", "fable"])
+      .replace("GPT ", "GPT-")
+      .replace(/\b(astra|sol|terra|luna)\b/g, word => word[0].toUpperCase() + word.slice(1));
+  if (/^gemini[- ]/.test(n))
+    return n.replace(/^gemini[- ]/, "Gemini ").replaceAll("-", " ")
+      .replace(/\b(flash|pro)\b/g, word => word[0].toUpperCase() + word.slice(1));
+  for (const family of ["opus", "sonnet", "haiku", "fable"])
     if (n.startsWith(family + "-"))
       return n
         .replace(family + "-", family[0].toUpperCase() + family.slice(1) + " ")
@@ -95,7 +99,7 @@ export function modelColor(name) {
     v = Number(
       (
         n.match(
-          /(?:gpt|claude-opus|claude-sonnet|opus|sonnet|gemini)[- ](\d+(?:[.-]\d+)?)/,
+          /(?:gpt|claude-opus|claude-sonnet|claude-haiku|opus|sonnet|haiku|gemini)[- ](\d+(?:[.-]\d+)?)/,
         )?.[1] || "0"
       ).replace("-", "."),
     );
@@ -103,10 +107,13 @@ export function modelColor(name) {
     lightness = 55;
   if (n.includes("opus")) {
     hue = 275;
-    lightness = v >= 5.5 ? 72 : v >= 5 ? 60 : v >= 4.8 ? 48 : 36;
+    lightness = v >= 5.5 ? 48 : v >= 5 ? 60 : v >= 4.8 ? 72 : 84;
   } else if (n.includes("sonnet")) {
     hue = 26;
-    lightness = v >= 5.5 ? 72 : v >= 5 ? 60 : v >= 4.5 ? 48 : 36;
+    lightness = v >= 5.5 ? 48 : v >= 5 ? 60 : v >= 4.5 ? 72 : 84;
+  } else if (n.includes("haiku")) {
+    hue = 95;
+    lightness = v >= 5.5 ? 48 : v >= 5 ? 60 : v >= 4.5 ? 72 : v >= 3.5 ? 80 : 88;
   } else if (n.includes("gpt")) {
     hue = n.includes("terra")
       ? 45
@@ -117,19 +124,19 @@ export function modelColor(name) {
           : 215;
     lightness =
       v >= 6.1
-        ? 75
+        ? 43
         : v >= 6
-          ? 67
+          ? 51
           : v >= 5.6
             ? 59
             : v >= 5.5
-              ? 51
+              ? 67
               : v >= 5.4
-                ? 43
-                : 35;
+                ? 75
+                : 83;
   } else if (n.includes("gemini")) {
     hue = 180;
-    lightness = v >= 3.8 ? 72 : v >= 3.7 ? 60 : v >= 3.1 ? 48 : 36;
+    lightness = v >= 3.8 ? 48 : v >= 3.7 ? 60 : v >= 3.1 ? 72 : 84;
   } else if (n.includes("fable")) hue = 325;
   else {
     hue = [...n].reduce((s, c) => s * 31 + c.charCodeAt(0), 0) % 360;
