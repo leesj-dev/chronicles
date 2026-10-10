@@ -1,16 +1,16 @@
 import argparse
 import json
-import os
 import subprocess
 from pathlib import Path
 
 from paths import ROOT, SRC
+from adapters.base import KST
 parser = argparse.ArgumentParser(description='Import usage metadata over SSH without copying conversation content.')
 parser.add_argument('--host', default='macmini')
 args = parser.parse_args()
 server = (SRC/'server.py').read_text()
 bundle = 'import types,sys,json,os\n'
-bundle += 'os.environ["CHRONICLES_TIMEZONE"]='+repr(os.environ.get('CHRONICLES_TIMEZONE','UTC'))+'\n'
+bundle += 'os.environ["CHRONICLES_TIMEZONE"]='+repr(str(KST))+'\n'
 bundle += 'paths=types.ModuleType("paths");paths.__file__="/tmp/chronicles/src/paths.py";sys.modules["paths"]=paths\n'
 bundle += 'exec('+repr((SRC/'paths.py').read_text())+',paths.__dict__)\n'
 bundle += 'package=types.ModuleType("adapters");package.__path__=[];sys.modules["adapters"]=package\n'

@@ -79,7 +79,7 @@ You can also place a Cursor usage CSV at `.local/imports/cursor.csv`. Overlappin
 
 ## Timezone and other devices
 
-Dates default to UTC. Set an IANA timezone before launching:
+Dates use the system timezone automatically (for example, `Asia/Seoul` on a Mac configured for Korean time). Chronicles checks `TZ`, `/etc/localtime`, and `/etc/timezone`, falling back to UTC if no IANA timezone is available. Restart the server after changing the system timezone. To override it, set an IANA timezone before launching:
 
 ```sh
 CHRONICLES_TIMEZONE=Asia/Seoul python3 src/server.py
@@ -91,7 +91,7 @@ To import another device, configure an SSH host with batch authentication and Py
 CHRONICLES_TIMEZONE=Asia/Seoul python3 src/sync.py --host YOUR_SSH_HOST
 ```
 
-Use the same timezone for the server and sync. The adapters execute over SSH without installing files remotely. Only normalized usage metadata is saved in `.local/imports/macmini.json`; conversation text and credentials are not copied. One remote snapshot is supported, and syncing another host replaces it. Duplicate local and remote records merge.
+Use the same timezone for the server and sync. Sync automatically passes this computer's resolved timezone to the remote adapters. The adapters execute over SSH without installing files remotely. Only normalized usage metadata is saved in `.local/imports/macmini.json`; conversation text and credentials are not copied. One remote snapshot is supported, and syncing another host replaces it. Duplicate local and remote records merge.
 
 ## Standalone HTML
 

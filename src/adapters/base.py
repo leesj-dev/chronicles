@@ -6,10 +6,37 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 
-KST = ZoneInfo(os.environ.get('CHRONICLES_TIMEZONE', 'UTC'))
+
+def get_timezone():
+    """Resolve an IANA timezone for date grouping and browser formatting."""
+    override = os.environ.get('CHRONICLES_TIMEZONE')
+    if override:
+        return ZoneInfo(override)
+    candidates = []
+    if os.environ.get('TZ'):
+        candidates.append(os.environ['TZ'].lstrip(':').split('zoneinfo/')[-1])
+    try:
+        localtime = str(Path('/etc/localtime').resolve())
+        if 'zoneinfo/' in localtime:
+            candidates.append(localtime.split('zoneinfo/', 1)[1])
+    except OSError:
+        pass
+    try:
+        candidates.append(Path('/etc/timezone').read_text().strip())
+    except OSError:
+        pass
+    for name in candidates:
+        try:
+            return ZoneInfo(name)
+        except (ZoneInfoNotFoundError, ValueError):
+            continue
+    return ZoneInfo('UTC')
+
+
+KST = get_timezone()
 
 
 def event_id(key):
