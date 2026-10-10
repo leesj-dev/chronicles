@@ -6,19 +6,31 @@ Chronicles is an open-source dashboard for exploring your AI usage history. Comp
 
 ### Daily timeline
 
-![Daily timeline with fictional data](docs/daily.jpg)
+Compare daily usage by model with stacked bars and a shared color palette.
+
+![Daily timeline with fictional data](docs/daily.png)
 
 ### Model chapters
 
-![Model chapters with fictional data](docs/chapters.jpg)
+See how your model mix changes across chapters. Circle area shows total usage; bars compare daily averages.
+
+![Model chapters with fictional data](docs/chapters.png)
+
+### Ranking race
+
+Replay model rankings over time using a 7-day window, a 30-day window, or cumulative usage. Pause, scrub to a date, and choose 1x, 2x, or 4x playback.
+
+![Ranking race with fictional data](docs/race.png)
+
+All screenshots use fictional demo records.
 
 ## Quick start
 
 Requires **Python 3.10+** and a modern browser. Node.js 20+ is optional for development checks. Copilot and Antigravity discovery currently targets macOS; other adapters use their provider’s standard data locations.
 
 ```sh
-git clone https://github.com/leesj-dev/chronicles.git
-cd chronicles
+git clone https://github.com/leesj-dev/Chronicles.git
+cd Chronicles
 python3 src/server.py
 ```
 
@@ -30,18 +42,21 @@ To explore fictional sample data:
 python3 src/server.py --demo
 ```
 
-The app also lets you switch between local history and demo data. Demo screenshots and `examples/demo.json` contain fictional records only.
+If no local usage records are found, the app automatically shows a preview demo with a clear notice. Refresh checks for local records again. Demo screenshots and `examples/demo.json` contain fictional records only.
 
 ## Explore your history
 
 - **Daily timeline:** stacked daily bars with model tooltips and shared model colors.
 - **Model chapters:** ranked circles with model names directly above them. Circle area represents total usage; bars use a common scale to compare daily averages across chapters.
+- **Ranking race:** animate model rankings for the selected metric and filters. Rolling windows include available history before the selected start date; cumulative usage starts at that date. At 1x, playback advances by two dates per second.
 - **Filters:** select models and harnesses individually or select/deselect all. Only harnesses with loaded usage records appear; changing chart filters keeps that list stable.
-- **Metrics:** requests/calls, total/input/output tokens, cache read/write, and Copilot response rounds. Both visualizations use the same metrics and colors.
-- **Date range:** drag either endpoint, enter dates, or choose a preset.
+- **Summary and models:** see the selected-period total, daily average, and model count beside the chart. Toggle models from the list; on small screens, the panels stack vertically.
+- **Numbers:** request counts stay unabridged (for example, `11,680`), and request averages use at most one decimal place. Abbreviated token values use two decimal places (for example, `130.50M`).
+- **Metrics:** requests/calls, total/input/output tokens, cache read/write, and Copilot response rounds. All visualizations use the same metrics and colors.
+- **Date range:** drag either endpoint, choose dates in the calendar popovers, or choose a preset. Calendars support month navigation and keyboard selection and disable dates outside the available or selected range.
 - **Chapter boundaries:** model transitions, 7-day intervals, or calendar months.
 - **Export CSV:** exports the current selection; missing token counts remain blank.
-- **Appearance:** Nova-style controls automatically follow system light/dark mode.
+- **Appearance:** automatically follows system light/dark mode.
 
 Transition chapters begin when a new model appears with at least 3 records and 0.5% of selected requests. Boundaries stay at least 7 days apart. Filtering recalculates chapters, and daily averages include inactive days.
 
@@ -96,11 +111,11 @@ Use the same timezone for the server and sync. Sync automatically passes this co
 ## Standalone HTML
 
 ```sh
-python3 src/server.py --export exports/chronicles.html
+python3 src/server.py --export exports/Chronicles.html
 python3 src/server.py --demo --export exports/demo.html
 ```
 
-Open the resulting file directly in a browser. Both charts and their filters work offline. HTML snapshots contain the complete exported record set and available account metrics; CSV exports follow the current selection. Keep personal snapshots private unless you intend to share your usage history.
+Open the resulting file directly in a browser. All three visualizations and their filters work offline. HTML snapshots contain the complete exported record set and available account metrics; CSV exports follow the current selection. Keep personal snapshots private unless you intend to share your usage history.
 
 ## Counting and coverage
 

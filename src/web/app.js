@@ -24,7 +24,14 @@ const $ = (id) => document.getElementById(id),
   };
 let saved = {};
 try {
-  saved = JSON.parse(localStorage.getItem("chronicles") || "{}");
+  const current = localStorage.getItem("Chronicles");
+  const legacyKey = "Chronicles".toLowerCase();
+  const legacy = localStorage.getItem(legacyKey);
+  saved = JSON.parse(current || legacy || "{}");
+  if (current === null && legacy !== null) {
+    localStorage.setItem("Chronicles", legacy);
+  }
+  localStorage.removeItem(legacyKey);
 } catch {}
 let data,
   rows = [],
@@ -44,7 +51,7 @@ let harnesses = new Set(saved.harnesses || Object.keys(HARNESSES)),
 function persist() {
   try {
     localStorage.setItem(
-      "chronicles",
+      "Chronicles",
       JSON.stringify({
         view,
         metric,
@@ -930,7 +937,7 @@ $("export").onclick = () => {
   ].join("\n");
   const a = el("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `chronicles-${start}-${end}.csv`;
+  a.download = `Chronicles-${start}-${end}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };

@@ -16,4 +16,4 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run test:collectors
-      - run: python3 src/server.py --demo --export /tmp/chronicles-demo.html
+      - run: python3 src/server.py --demo --export /tmp/Chronicles-demo.html
